@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { db } from "$lib/db/database.svelte";
   import { player } from "$lib/audio/player.svelte";
   import type { Track } from "$lib/types";
@@ -14,21 +13,34 @@
   });
 
   async function loadItems(filter: string) {
-    if (!db.isReady) return;
+    if (!db.isReady) {
+      console.log("[Home] DB not ready yet");
+      return;
+    }
     loading = true;
+    console.log("[Home] Loading items for filter:", filter);
     try {
       if (filter === "All") {
-        // Dashboard: Recent Tracks
-        items = await db.getTracks(); // Limit?
+        const result = await db.getTracks();
+        console.log("[Home] getTracks returned:", result);
+        items = Array.isArray(result) ? result : [];
       } else if (filter === "Albums") {
-        items = await db.getAlbums();
+        const result = await db.getAlbums();
+        console.log("[Home] getAlbums returned:", result);
+        items = Array.isArray(result) ? result : [];
       } else if (filter === "Artists") {
-        items = await db.getArtists();
+        const result = await db.getArtists();
+        console.log("[Home] getArtists returned:", result);
+        items = Array.isArray(result) ? result : [];
       } else if (filter === "Playlists") {
-        items = await db.getPlaylists();
+        const result = await db.getPlaylists();
+        console.log("[Home] getPlaylists returned:", result);
+        items = Array.isArray(result) ? result : [];
       }
+      console.log("[Home] Final items:", items);
     } catch (e) {
-      console.error("Failed to load items", e);
+      console.error("[Home] Failed to load items:", e);
+      items = []; // Force empty array on error
     } finally {
       loading = false;
     }
@@ -36,7 +48,10 @@
 
   // Reload when DB is ready
   $effect(() => {
-    if (db.isReady) loadItems(activeFilter);
+    if (db.isReady) {
+      console.log("[Home] DB became ready, loading items");
+      loadItems(activeFilter);
+    }
   });
 </script>
 
@@ -142,16 +157,11 @@
           <div
             class="aspect-square rounded-xl bg-surface-800 relative overflow-hidden shadow-lg border border-white/5"
           >
-            {#if album.artwork_path}
-              <!-- TODO: Solve artwork path -->
-              <div class="w-full h-full bg-surface-700"></div>
-            {:else}
-              <div
-                class="w-full h-full flex items-center justify-center text-white/20"
-              >
-                <span class="material-symbols-rounded text-4xl">album</span>
-              </div>
-            {/if}
+            <div
+              class="w-full h-full flex items-center justify-center text-white/20"
+            >
+              <span class="material-symbols-rounded text-4xl">album</span>
+            </div>
             <!-- Play overlay -->
             <div
               class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
