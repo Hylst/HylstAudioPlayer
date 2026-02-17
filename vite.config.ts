@@ -10,11 +10,8 @@ export default defineConfig({
         SvelteKitPWA({
             strategies: 'injectManifest',
             srcDir: 'src',
-            filename: 'sw.ts',
             registerType: 'autoUpdate',
             injectManifest: {
-                swSrc: 'src/sw.ts',
-                swDest: 'sw.js',
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}']
             },
             manifest: false,

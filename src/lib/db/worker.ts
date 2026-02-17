@@ -189,6 +189,69 @@ self.onmessage = async (event: MessageEvent) => {
             }
             break;
 
+        case 'GET_ALBUMS':
+            if (!db) {
+                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                // Aggregate from tracks since albums table is not yet populated by scanner
+                const result: any[] = [];
+                db.exec({
+                    sql: `SELECT album, album_artist, artist, year, artwork_hash, COUNT(*) as track_count 
+                          FROM tracks 
+                          WHERE album IS NOT NULL AND album != '' 
+                          GROUP BY album 
+                          ORDER BY album`,
+                    rowMode: 'object',
+                    callback: (row) => result.push(row)
+                });
+                postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+            } catch (err: any) {
+                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'GET_ARTISTS':
+            if (!db) {
+                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const result: any[] = [];
+                db.exec({
+                    sql: `SELECT artist, COUNT(*) as track_count 
+                          FROM tracks 
+                          WHERE artist IS NOT NULL AND artist != '' 
+                          GROUP BY artist 
+                          ORDER BY artist`,
+                    rowMode: 'object',
+                    callback: (row) => result.push(row)
+                });
+                postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+            } catch (err: any) {
+                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'GET_PLAYLISTS':
+            if (!db) {
+                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const result: any[] = [];
+                db.exec({
+                    sql: `SELECT * FROM playlists ORDER BY name`,
+                    rowMode: 'object',
+                    callback: (row) => result.push(row)
+                });
+                postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+            } catch (err: any) {
+                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
         default:
             log('Unknown message type:', type);
     }

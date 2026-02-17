@@ -128,6 +128,20 @@ export class DatabaseManager {
     async importDatabase(file: File | Blob): Promise<void> {
         return this.send('IMPORT_DB', { file });
     }
+    async getAlbums(): Promise<any[]> {
+        const res = await this.send('GET_ALBUMS');
+        return res.result;
+    }
+
+    async getArtists(): Promise<any[]> {
+        const res = await this.send('GET_ARTISTS');
+        return res.result;
+    }
+
+    async getPlaylists(): Promise<any[]> {
+        const res = await this.send('GET_PLAYLISTS');
+        return res.result;
+    }
 }
 
 // Singleton instance
