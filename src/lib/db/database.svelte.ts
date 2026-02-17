@@ -105,7 +105,10 @@ export class DatabaseManager {
 
     async getTrackCount(): Promise<number> {
         const result = await this.exec('SELECT COUNT(*) as count FROM tracks');
-        return result[0]?.count ?? 0;
+        if (!result || !Array.isArray(result) || result.length === 0) {
+            return 0;
+        }
+        return result[0].count as number;
     }
 
     async upsertTrack(track: Partial<Track>): Promise<void> {
@@ -129,21 +132,21 @@ export class DatabaseManager {
      * WARNING: This operation is destructive and triggers a reload.
      */
     async importDatabase(file: File | Blob): Promise<void> {
-        return this.send('IMPORT_DB', { file });
+        return this.sendMessage('IMPORT_DB', { file });
     }
     async getAlbums(): Promise<any[]> {
-        const res = await this.send('GET_ALBUMS');
-        return res.result;
+        const result = await this.sendMessage('GET_ALBUMS', {});
+        return Array.isArray(result) ? result : [];
     }
 
     async getArtists(): Promise<any[]> {
-        const res = await this.send('GET_ARTISTS');
-        return res.result;
+        const result = await this.sendMessage('GET_ARTISTS', {});
+        return Array.isArray(result) ? result : [];
     }
 
     async getPlaylists(): Promise<any[]> {
-        const res = await this.send('GET_PLAYLISTS');
-        return res.result;
+        const result = await this.sendMessage('GET_PLAYLISTS', {});
+        return Array.isArray(result) ? result : [];
     }
 }
 
