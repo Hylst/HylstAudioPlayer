@@ -29,16 +29,18 @@ async function initDB() {
             // Use the OPFS VFS (Origin Private File System)
             db = new sqlite3.oo1.OpfsDb('/hylst_audio_player.db');
             log('Database opened successfully via OPFS.');
-
-            // Run migrations
-            if (db) migrateDatabase(db);
-
-            // Notify main thread we are ready
-            self.postMessage({ type: 'DB_READY' });
         } else {
-            error('OPFS is NOT available in this environment.');
-            self.postMessage({ type: 'DB_ERROR', payload: { message: 'OPFS not available' } });
+            // Fallback to in-memory DB for dev (when COOP/COEP headers aren't working)
+            log('⚠️ OPFS not available - using IN-MEMORY database (data will be lost on reload)');
+            db = new sqlite3.oo1.DB(':memory:', 'c');
+            log('In-memory database created successfully.');
         }
+
+        // Run migrations
+        if (db) migrateDatabase(db);
+
+        // Notify main thread we are ready
+        self.postMessage({ type: 'DB_READY' });
     } catch (err: any) {
         error('Initialization failed:', err);
         self.postMessage({ type: 'DB_ERROR', payload: { message: err.message } });
