@@ -19,15 +19,23 @@ let shouldCancel = false;
 self.onmessage = async (event) => {
     const { type, payload } = event.data;
 
+    console.log('[Scanner Worker] Message received:', type);
+
     switch (type) {
         case 'START_SCAN':
-            if (isScanning) return;
+            if (isScanning) {
+                console.warn('[Scanner Worker] Already scanning');
+                return;
+            }
             isScanning = true;
             shouldCancel = false;
             try {
+                console.log('[Scanner Worker] Starting scan...');
                 await scanDirectory(payload.handle, payload.path || '');
+                console.log('[Scanner Worker] Scan completed, sending SCAN_COMPLETE');
                 postMessage({ type: 'SCAN_COMPLETE' });
             } catch (err: any) {
+                console.error('[Scanner Worker] Scan error:', err);
                 postMessage({ type: 'SCAN_ERROR', payload: { message: err.message } });
             } finally {
                 isScanning = false;
@@ -35,6 +43,7 @@ self.onmessage = async (event) => {
             break;
 
         case 'CANCEL_SCAN':
+            console.log('[Scanner Worker] Cancelling scan');
             shouldCancel = true;
             break;
     }
@@ -45,6 +54,8 @@ self.onmessage = async (event) => {
  */
 async function scanDirectory(dirHandle: FileSystemDirectoryHandle, parentPath: string) {
     if (shouldCancel) return;
+
+    console.log('[Scanner Worker] Scanning directory:', parentPath || '(root)');
 
     const tracksBatch: Partial<Track>[] = [];
     let processedCount = 0;
@@ -77,12 +88,13 @@ async function scanDirectory(dirHandle: FileSystemDirectoryHandle, parentPath: s
 
                     // Send batch if full
                     if (tracksBatch.length >= BATCH_SIZE) {
+                        console.log('[Scanner Worker] Sending batch of', tracksBatch.length, 'tracks');
                         postMessage({ type: 'SCAN_BATCH', payload: { tracks: [...tracksBatch] } });
                         tracksBatch.length = 0;
                     }
 
                 } catch (err) {
-                    console.warn(`[Scanner] Failed to parse ${entryPath}`, err);
+                    console.warn(`[Scanner Worker] Failed to parse ${entryPath}`, err);
                 }
             }
         } else if (entry.kind === 'directory') {
@@ -93,6 +105,9 @@ async function scanDirectory(dirHandle: FileSystemDirectoryHandle, parentPath: s
 
     // Flush remaining
     if (tracksBatch.length > 0) {
+        console.log('[Scanner Worker] Sending final batch of', tracksBatch.length, 'tracks');
         postMessage({ type: 'SCAN_BATCH', payload: { tracks: tracksBatch } });
     }
+
+    console.log('[Scanner Worker] Finished scanning directory:', parentPath || '(root)', '- Found', processedCount, 'tracks');
 }

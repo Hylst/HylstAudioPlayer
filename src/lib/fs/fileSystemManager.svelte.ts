@@ -4,7 +4,7 @@
 
 import { get, set, del } from 'idb-keyval';
 import { db } from '$lib/db/database.svelte';
-import ScannerWorker from './scanner.worker?worker';
+// import ScannerWorker from './scanner.worker?worker'; // Now using standard Worker pattern
 
 export class FileSystemManager {
     // State
@@ -68,8 +68,14 @@ export class FileSystemManager {
      * Start the scan worker.
      */
     async startScan() {
-        if (!this.rootHandle) return;
-        if (this.isScanning) return;
+        if (!this.rootHandle) {
+            console.warn('[FS] No root handle, cannot scan');
+            return;
+        }
+        if (this.isScanning) {
+            console.warn('[FS] Already scanning');
+            return;
+        }
 
         // Verify permission before scanning (needed if handle loaded from IDB)
         const hasPerm = await this.verifyPermission(this.rootHandle, true);
@@ -82,10 +88,14 @@ export class FileSystemManager {
         }
 
         this.isScanning = true;
+        console.log('[FS] Starting scan for folder:', this.rootHandle.name);
 
         // Init worker if needed
         if (!this.worker) {
-            this.worker = new ScannerWorker();
+            console.log('[FS] Creating scanner worker...');
+            this.worker = new Worker(new URL('./scanner.worker.ts', import.meta.url), {
+                type: 'module'
+            });
             this.setupWorkerListeners();
         }
 
@@ -93,6 +103,7 @@ export class FileSystemManager {
             type: 'START_SCAN',
             payload: { handle: this.rootHandle }
         });
+        console.log('[FS] Scan message sent to worker');
     }
 
     private setupWorkerListeners() {
@@ -100,11 +111,14 @@ export class FileSystemManager {
 
         this.worker.onmessage = async (event) => {
             const { type, payload } = event.data;
+            console.log('[FS] Worker message received:', type, payload);
 
             switch (type) {
                 case 'SCAN_BATCH':
                     // Insert tracks into DB (batch upsert)
+                    console.log('[FS] Inserting batch of', payload.tracks.length, 'tracks');
                     await db.upsertTracks(payload.tracks);
+                    console.log('[FS] Batch inserted successfully');
                     break;
 
                 case 'SCAN_COMPLETE':
@@ -119,6 +133,11 @@ export class FileSystemManager {
                     this.isScanning = false;
                     break;
             }
+        };
+
+        this.worker.onerror = (error) => {
+            console.error('[FS] Worker error:', error);
+            this.isScanning = false;
         };
     }
 
