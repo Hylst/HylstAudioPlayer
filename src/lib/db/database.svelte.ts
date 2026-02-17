@@ -76,11 +76,15 @@ export class DatabaseManager {
      * Generic method to send commands to the worker.
      */
     private async send(type: string, payload: any = {}): Promise<any> {
-        if (!this.worker) throw new Error('DB Worker not initialized');
+        if (!this.worker) {
+            console.error('[DB] Worker not initialized');
+            throw new Error('DB Worker not initialized');
+        }
 
         return new Promise((resolve, reject) => {
             const id = crypto.randomUUID();
             this.pendingRequests.set(id, { id, resolve, reject });
+            console.log(`[DB] Sending command: ${type}`);
             this.worker!.postMessage({
                 type,
                 id,
@@ -132,7 +136,12 @@ export class DatabaseManager {
      * WARNING: This operation is destructive and triggers a reload.
      */
     async importDatabase(file: File | Blob): Promise<void> {
-        return this.sendMessage('IMPORT_DB', { file });
+        try {
+            return await this.send('IMPORT_DB', { file });
+        } catch (err) {
+            console.error('[DB] importDatabase failed:', err);
+            throw err;
+        }
     }
     async getAlbums(): Promise<any[]> {
         try {
