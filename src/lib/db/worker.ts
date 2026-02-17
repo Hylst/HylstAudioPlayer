@@ -46,7 +46,8 @@ async function initDB() {
 }
 
 // Handle messages from main thread
-self.onmessage = async (event: MessageEvent) => {
+// @ts-ignore - Type conflict between MessageEvent and ExtendableMessageEvent
+self.onmessage = async (event: any) => {
     const { type, payload, id } = event.data;
 
     // Basic command dispatcher

@@ -2,7 +2,7 @@
 // Coordinates directory selection and scanning.
 // Svelte 5 Runes.
 
-import { get, set, del } from 'idb-keyval';
+import { get, set } from 'idb-keyval';
 import { db } from '$lib/db/database.svelte';
 // import ScannerWorker from './scanner.worker?worker'; // Now using standard Worker pattern
 
@@ -142,15 +142,20 @@ export class FileSystemManager {
     }
 
     /**
-     * Verify read permission for a handle.
+     * Verify permission for a handle (read or readwrite).
      */
-    private async verifyPermission(handle: FileSystemDirectoryHandle, readWrite = false) {
-        const opts: FileSystemHandlePermissionDescriptor = {
-            mode: readWrite ? 'readwrite' : 'read'
-        };
+    private async verifyPermission(
+        handle: FileSystemDirectoryHandle,
+        withWrite: boolean
+    ): Promise<boolean> {
+        // @ts-ignore - FileSystem API permissions are experimental
+        const opts: FileSystemHandlePermissionDescriptor = { mode: withWrite ? 'readwrite' : 'read' };
+
+        // @ts-ignore - queryPermission is experimental
         if ((await handle.queryPermission(opts)) === 'granted') {
             return true;
         }
+        // @ts-ignore - requestPermission is experimental
         if ((await handle.requestPermission(opts)) === 'granted') {
             return true;
         }
