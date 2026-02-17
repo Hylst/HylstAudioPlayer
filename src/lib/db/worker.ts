@@ -4,9 +4,11 @@ import type { Database } from '@sqlite.org/sqlite-wasm';
 
 import { migrateDatabase } from './migrations';
 
-// Allow communicating with the main thread
-// Allow communicating with the main thread
-declare let self: ServiceWorkerGlobalScope;
+// Declare self scope with correct type for Web Worker
+declare const self: ServiceWorkerGlobalScope & {
+    postMessage: (message: any) => void;
+    onmessage: ((this: ServiceWorkerGlobalScope, ev: MessageEvent) => any) | null;
+};
 
 let db: Database | undefined;
 let sqlite3: any;
@@ -32,18 +34,17 @@ async function initDB() {
             log('Database opened successfully via OPFS.');
 
             // Run migrations
-            migrateDatabase(db);
+            if (db) migrateDatabase(db);
 
             // Notify main thread we are ready
-            postMessage({ type: 'DB_READY' });
+            self.postMessage({ type: 'DB_READY' });
         } else {
             error('OPFS is NOT available in this environment.');
-            // Fallback or error handling? For HAP, OPFS is required.
-            postMessage({ type: 'DB_ERROR', payload: { message: 'OPFS not available' } });
+            self.postMessage({ type: 'DB_ERROR', payload: { message: 'OPFS not available' } });
         }
     } catch (err: any) {
         error('Initialization failed:', err);
-        postMessage({ type: 'DB_ERROR', payload: { message: err.message } });
+        self.postMessage({ type: 'DB_ERROR', payload: { message: err.message } });
     }
 }
 
@@ -59,7 +60,7 @@ self.onmessage = async (event: MessageEvent) => {
 
         case 'EXEC_SQL':
             if (!db) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
                 return;
             }
             try {
@@ -68,28 +69,28 @@ self.onmessage = async (event: MessageEvent) => {
                     sql: payload.sql,
                     bind: payload.params,
                     rowMode: 'object',
-                    callback: (row) => {
+                    callback: (row: any) => {
                         result.push(row);
                     }
                 });
-                postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
             } catch (err: any) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }
             break;
 
         case 'EXPORT_DB':
             if (!db) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
                 return;
             }
             try {
                 // @ts-ignore - internal API
                 const byteArray = sqlite3.capi.sqlite3_js_db_export(db.pointer);
                 const blob = new Blob([byteArray], { type: 'application/x-sqlite3' });
-                postMessage({ type: 'CMD_SUCCESS', id, payload: { result: blob } });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: blob } });
             } catch (err: any) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }
             break;
 
@@ -108,43 +109,23 @@ self.onmessage = async (event: MessageEvent) => {
                 await writable.write(payload.file);
                 await writable.close();
 
-                // Re-open DB
-                // We need to re-init or just re-open?
-                // `initDB` handles init, but here we just want to reopen.
-                // Re-using initDB logic partially or just calling initDB again?
-                // Let's call initDB, which checks if sqlite3 is loaded but re-opens db.
-                // However initDB is async and complex.
-                // Let's just manually re-open using the global sqlite3 instance if available, 
-                // but sqlite3 is local to initDB scope.
-                // We should make sqlite3 global or accessible.
-
-                // Refactor: We can't easily access sqlite3 here if it's local.
-                // Let's trigger a full reload or just send SUCCESS and let main thread ask for INIT.
-                // But safer to re-init here.
-                // For now, let's assume we need to reload the page or re-init.
-                // Let's return success and let the app reload.
-
-                postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
-
-                // Optionally request a reload from main thread?
-                // Or try to re-open if we move sqlite3 to outer scope.
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
 
             } catch (err: any) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }
             break;
 
         case 'UPSERT_TRACKS':
             if (!db) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
                 return;
             }
             try {
                 const { tracks } = payload;
-                db.transaction(() => {
-                    // TODO: Use prepared statement for performance
-                    // For now, we use exec for each, but inside a transaction it's faster
-                    const stmt = db.prepare(`
+                const localDb = db; // Capture for transaction closure
+                localDb.transaction(() => {
+                    const stmt = localDb.prepare(`
                         INSERT OR REPLACE INTO tracks (
                             file_path, title, artist, album, album_artist, genre, year, 
                             track_number, disc_number, duration, bitrate, sample_rate, 
@@ -183,19 +164,18 @@ self.onmessage = async (event: MessageEvent) => {
                         stmt.finalize();
                     }
                 });
-                postMessage({ type: 'CMD_SUCCESS', id, payload: { result: tracks.length } });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: tracks.length } });
             } catch (err: any) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }
             break;
 
         case 'GET_ALBUMS':
             if (!db) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
                 return;
             }
             try {
-                // Aggregate from tracks since albums table is not yet populated by scanner
                 const result: any[] = [];
                 db.exec({
                     sql: `SELECT album, album_artist, artist, year, artwork_hash, COUNT(*) as track_count 
@@ -204,17 +184,17 @@ self.onmessage = async (event: MessageEvent) => {
                           GROUP BY album 
                           ORDER BY album`,
                     rowMode: 'object',
-                    callback: (row) => result.push(row)
+                    callback: (row: any) => { result.push(row); }
                 });
-                postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
             } catch (err: any) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }
             break;
 
         case 'GET_ARTISTS':
             if (!db) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
                 return;
             }
             try {
@@ -226,17 +206,17 @@ self.onmessage = async (event: MessageEvent) => {
                           GROUP BY artist 
                           ORDER BY artist`,
                     rowMode: 'object',
-                    callback: (row) => result.push(row)
+                    callback: (row: any) => { result.push(row); }
                 });
-                postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
             } catch (err: any) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }
             break;
 
         case 'GET_PLAYLISTS':
             if (!db) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
                 return;
             }
             try {
@@ -244,11 +224,11 @@ self.onmessage = async (event: MessageEvent) => {
                 db.exec({
                     sql: `SELECT * FROM playlists ORDER BY name`,
                     rowMode: 'object',
-                    callback: (row) => result.push(row)
+                    callback: (row: any) => { result.push(row); }
                 });
-                postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
             } catch (err: any) {
-                postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }
             break;
 

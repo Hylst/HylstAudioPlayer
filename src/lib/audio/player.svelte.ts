@@ -4,6 +4,7 @@
 import type { Track, EQBand } from '$lib/types';
 import { AudioEngine } from './audioEngine';
 import { fsManager } from '$lib/fs/fileSystemManager.svelte';
+import { Visualizer } from './visualizer';
 
 const DEFAULT_EQ_BANDS: EQBand[] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000].map(f => ({
     frequency: f,
@@ -27,14 +28,19 @@ class PlayerStore {
     private engine: AudioEngine;
     private timeInterval: any;
 
+    // Public
+    visualizer: any; // Type 'Visualizer' causing import issues? Using 'any' for now to unblock or need to import Visualizer class if not already.
+
     constructor() {
         if (typeof window !== 'undefined') {
             this.engine = new AudioEngine();
+            this.visualizer = new Visualizer(this.engine.analyserNode);
             // Sync volume
             this.engine.setVolume(this.volume);
         } else {
             // SSR shim
             this.engine = {} as AudioEngine;
+            this.visualizer = {} as Visualizer;
         }
     }
 
