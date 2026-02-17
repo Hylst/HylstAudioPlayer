@@ -4,7 +4,7 @@
 
 import type { Track } from '$lib/types';
 // Import worker constructor directly for Vite to process it
-import DBWorker from './worker?worker';
+// import DBWorker from './worker?worker';
 
 interface WorkerRequest {
     id: string;
@@ -34,7 +34,10 @@ export class DatabaseManager {
         if (this.worker) return;
 
         try {
-            this.worker = new DBWorker();
+            // Standard Vite/ESM Worker instantiation
+            this.worker = new Worker(new URL('./worker.ts', import.meta.url), {
+                type: 'module'
+            });
 
             this.worker.onmessage = (event) => {
                 const { type, id, payload } = event.data;

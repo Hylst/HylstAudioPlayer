@@ -7,19 +7,22 @@ export default defineConfig({
     plugins: [
         tailwindcss(),
         sveltekit(),
-        SvelteKitPWA({
-            strategies: 'injectManifest',
-            srcDir: 'src',
-            registerType: 'autoUpdate',
-            injectManifest: {
-                globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}']
-            },
-            manifest: false,
-            devOptions: {
-                enabled: true,
-                type: 'module'
-            }
-        })
+        // SvelteKitPWA({
+        //     strategies: 'injectManifest',
+        //     srcDir: 'src',
+        //     filename: 'service-worker.js',
+        //     registerType: 'autoUpdate',
+        //     injectManifest: {
+        //         swSrc: 'src/service-worker.ts',
+        //         swDest: 'service-worker.js',
+        //         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}']
+        //     },
+        //     manifest: false,
+        //     devOptions: {
+        //         enabled: true,
+        //         type: 'module'
+        //     }
+        // })
     ],
     optimizeDeps: {
         exclude: ['@sqlite.org/sqlite-wasm']

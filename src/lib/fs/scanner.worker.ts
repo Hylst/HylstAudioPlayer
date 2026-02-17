@@ -47,7 +47,7 @@ async function scanDirectory(dirHandle: FileSystemDirectoryHandle, parentPath: s
     if (shouldCancel) return;
 
     const tracksBatch: Partial<Track>[] = [];
-    let processed Count = 0;
+    let processedCount = 0;
 
     // Using 'for await...of' on dirHandle.values() standard iterator
     // @ts-ignore - TypeScript might not have full FileSystem types yet
@@ -73,7 +73,7 @@ async function scanDirectory(dirHandle: FileSystemDirectoryHandle, parentPath: s
                     // For DB, we store the path relative to ROOT.
 
                     tracksBatch.push(track);
-          processed Count++;
+                    processedCount++;
 
                     // Send batch if full
                     if (tracksBatch.length >= BATCH_SIZE) {

@@ -1,4 +1,5 @@
 /// <reference lib="webworker" />
+import { build, files, version } from '$service-worker';
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
@@ -7,8 +8,27 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
 declare let self: ServiceWorkerGlobalScope;
 
-// Precache app shell (injected by vite-plugin-pwa at build time)
-precacheAndRoute(self.__WB_MANIFEST);
+// SvelteKit's build artifacts for precaching
+const precacheList = [
+    ...build,
+    ...files,
+].map(url => ({
+    url,
+    revision: version
+}));
+
+// Instant activation
+self.addEventListener('install', () => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', () => {
+    // @ts-ignore
+    self.clients.claim();
+});
+
+// Precache SvelteKit build assets
+precacheAndRoute(precacheList);
 
 // Clean up old caches from previous versions
 cleanupOutdatedCaches();

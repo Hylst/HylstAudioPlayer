@@ -20,10 +20,7 @@ const error = (...args: any[]) => console.error('[DB Worker]', ...args);
 async function initDB() {
     try {
         log('Initializing SQLite3...');
-        sqlite3 = await sqlite3InitModule({
-            print: log,
-            printErr: error,
-        });
+        sqlite3 = await sqlite3InitModule();
 
         log('Running with CAPABILITIES:', sqlite3.capi.sqlite3_libversion(), sqlite3.version);
 
