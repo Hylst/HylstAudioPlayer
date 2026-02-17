@@ -135,18 +135,33 @@ export class DatabaseManager {
         return this.sendMessage('IMPORT_DB', { file });
     }
     async getAlbums(): Promise<any[]> {
-        const result = await this.sendMessage('GET_ALBUMS', {});
-        return Array.isArray(result) ? result : [];
+        try {
+            const result = await this.send('GET_ALBUMS', {});
+            return Array.isArray(result) ? result : [];
+        } catch (err) {
+            console.error('[DB] getAlbums failed:', err);
+            return [];
+        }
     }
 
     async getArtists(): Promise<any[]> {
-        const result = await this.sendMessage('GET_ARTISTS', {});
-        return Array.isArray(result) ? result : [];
+        try {
+            const result = await this.send('GET_ARTISTS', {});
+            return Array.isArray(result) ? result : [];
+        } catch (err) {
+            console.error('[DB] getArtists failed:', err);
+            return [];
+        }
     }
 
     async getPlaylists(): Promise<any[]> {
-        const result = await this.sendMessage('GET_PLAYLISTS', {});
-        return Array.isArray(result) ? result : [];
+        try {
+            const result = await this.send('GET_PLAYLISTS', {});
+            return Array.isArray(result) ? result : [];
+        } catch (err) {
+            console.error('[DB] getPlaylists failed:', err);
+            return [];
+        }
     }
 }
 
