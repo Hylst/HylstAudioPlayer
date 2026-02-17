@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hylst Audio Player - Equalizer</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b4bee",
+                        "primary-glow": "#4d6bff",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#0f1014", 
+                        "glass-surface": "rgba(255, 255, 255, 0.03)",
+                        "glass-border": "rgba(255, 255, 255, 0.08)",
+                        "glass-highlight": "rgba(255, 255, 255, 0.15)",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    backgroundImage: {
+                        'grid-pattern': "linear-gradient(to right, #1f222e 1px, transparent 1px), linear-gradient(to bottom, #1f222e 1px, transparent 1px)",
+                    },
+                    boxShadow: {
+                        'neon': '0 0 10px rgba(43, 75, 238, 0.5), 0 0 20px rgba(43, 75, 238, 0.3)',
+                        'neon-sm': '0 0 5px rgba(43, 75, 238, 0.4)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Custom scrollbar hiding */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+        }
+
+        /* Vertical Range Slider specific logic via rotation usually, but here we build custom div based sliders for the EQ */
+        
+        .liquid-thumb {
+            box-shadow: 0 4px 15px rgba(43, 75, 238, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.3);
+            filter: drop-shadow(0 0 8px rgba(43, 75, 238, 0.5));
+        }
+
+        .glass-panel {
+            background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Switch Toggle */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #2b4bee;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #2b4bee;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-white min-h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
+<!-- Background Grid -->
+<div class="fixed inset-0 z-0 bg-grid-pattern bg-[length:40px_40px] opacity-20 pointer-events-none"></div>
+<div class="fixed inset-0 z-0 bg-gradient-to-b from-transparent via-background-dark/80 to-background-dark pointer-events-none"></div>
+<!-- Header -->
+<header class="relative z-20 flex items-center justify-between px-6 pt-12 pb-4 glass-panel border-b border-glass-border sticky top-0">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/5 transition-colors text-white/80">
+<span class="material-symbols-outlined">arrow_back_ios_new</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight text-white drop-shadow-md">Audio Settings</h1>
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/5 transition-colors text-white/80">
+<span class="material-symbols-outlined">restart_alt</span>
+</button>
+</header>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto relative z-10 hide-scrollbar pb-24">
+<!-- Preset Selector -->
+<div class="px-6 py-6">
+<div class="flex items-center justify-between mb-4">
+<span class="text-sm font-medium text-white/60 uppercase tracking-wider">Preset</span>
+<span class="font-mono text-primary text-xs tracking-wider">CUSTOM_01</span>
+</div>
+<div class="flex gap-3 overflow-x-auto hide-scrollbar pb-2 mask-linear-fade">
+<button class="flex-shrink-0 px-5 py-2 rounded-full glass-panel bg-primary/20 border-primary/50 text-white text-sm font-medium shadow-neon-sm transition-all whitespace-nowrap">
+                    Custom
+                </button>
+<button class="flex-shrink-0 px-5 py-2 rounded-full glass-panel hover:bg-white/5 text-white/60 hover:text-white text-sm font-medium transition-all whitespace-nowrap border-transparent border">
+                    Flat
+                </button>
+<button class="flex-shrink-0 px-5 py-2 rounded-full glass-panel hover:bg-white/5 text-white/60 hover:text-white text-sm font-medium transition-all whitespace-nowrap border-transparent border">
+                    Rock
+                </button>
+<button class="flex-shrink-0 px-5 py-2 rounded-full glass-panel hover:bg-white/5 text-white/60 hover:text-white text-sm font-medium transition-all whitespace-nowrap border-transparent border">
+                    Jazz
+                </button>
+<button class="flex-shrink-0 px-5 py-2 rounded-full glass-panel hover:bg-white/5 text-white/60 hover:text-white text-sm font-medium transition-all whitespace-nowrap border-transparent border">
+                    Pop
+                </button>
+<button class="flex-shrink-0 px-5 py-2 rounded-full glass-panel hover:bg-white/5 text-white/60 hover:text-white text-sm font-medium transition-all whitespace-nowrap border-transparent border">
+                    Classical
+                </button>
+</div>
+</div>
+<!-- 10-Band Equalizer -->
+<div class="px-2 mb-8 relative">
+<!-- Background visualization hint -->
+<div class="absolute inset-0 top-10 bottom-8 bg-gradient-to-t from-primary/5 to-transparent z-0 rounded-xl mx-4"></div>
+<div class="relative z-10 grid grid-cols-10 gap-1 h-64 items-end justify-items-center px-2">
+<!-- EQ Slider Item 1 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<!-- Track -->
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden">
+<div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-1/2"></div>
+</div>
+<!-- Thumb/Level -->
+<div class="relative w-1.5 h-[60%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">32</span>
+</div>
+<!-- EQ Slider Item 2 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[55%]"></div></div>
+<div class="relative w-1.5 h-[55%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">64</span>
+</div>
+<!-- EQ Slider Item 3 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[45%]"></div></div>
+<div class="relative w-1.5 h-[45%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">125</span>
+</div>
+<!-- EQ Slider Item 4 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[50%]"></div></div>
+<div class="relative w-1.5 h-[50%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">250</span>
+</div>
+<!-- EQ Slider Item 5 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[50%]"></div></div>
+<div class="relative w-1.5 h-[50%] bg-white/20 rounded-full group-hover:bg-white/40 transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-3 h-3 rounded-full bg-white/50 border border-white/20 backdrop-blur-sm"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">500</span>
+</div>
+<!-- EQ Slider Item 6 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[52%]"></div></div>
+<div class="relative w-1.5 h-[52%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">1k</span>
+</div>
+<!-- EQ Slider Item 7 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[65%]"></div></div>
+<div class="relative w-1.5 h-[65%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">2k</span>
+</div>
+<!-- EQ Slider Item 8 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[75%]"></div></div>
+<div class="relative w-1.5 h-[75%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">4k</span>
+</div>
+<!-- EQ Slider Item 9 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[70%]"></div></div>
+<div class="relative w-1.5 h-[70%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">8k</span>
+</div>
+<!-- EQ Slider Item 10 -->
+<div class="flex flex-col items-center gap-3 h-full justify-end group w-full">
+<div class="relative w-full h-full flex justify-center items-end py-2">
+<div class="absolute w-1 h-full bg-white/5 rounded-full overflow-hidden"><div class="absolute bottom-0 w-full bg-gradient-to-t from-primary/30 to-primary/10 h-[60%]"></div></div>
+<div class="relative w-1.5 h-[60%] bg-primary rounded-full shadow-neon group-hover:bg-primary-glow transition-all duration-300 ease-out flex items-start justify-center">
+<div class="absolute -top-3 w-4 h-4 rounded-full bg-primary border-2 border-white/20 liquid-thumb"></div>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white/40 tracking-tight transform -rotate-45 origin-center mt-2 w-4 text-center">16k</span>
+</div>
+</div>
+<!-- Dynamic value readout example (absolute positioned relative to container) -->
+<div class="absolute top-10 left-[70%] transform -translate-x-1/2 bg-background-dark/80 backdrop-blur-md border border-primary/30 text-primary text-[10px] font-mono font-bold px-2 py-1 rounded shadow-neon-sm z-20 pointer-events-none">
+                +4.5 dB
+            </div>
+</div>
+<!-- Audio Enhancements Section -->
+<div class="px-6 space-y-6">
+<!-- Bass Boost -->
+<div class="glass-panel rounded-xl p-5 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-primary/20 transition-all duration-500"></div>
+<div class="flex justify-between items-center mb-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">graphic_eq</span>
+</div>
+<span class="text-white font-medium text-base">Bass Boost</span>
+</div>
+<span class="font-mono text-primary text-sm font-bold tracking-wide">45%</span>
+</div>
+<div class="relative h-2 w-full bg-white/10 rounded-full">
+<div class="absolute top-0 left-0 h-full w-[45%] bg-primary rounded-full shadow-neon relative">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg scale-75 group-hover:scale-100 transition-transform cursor-pointer"></div>
+</div>
+</div>
+</div>
+<!-- 3D Surround & Virtualizer -->
+<div class="grid grid-cols-2 gap-4">
+<!-- 3D Surround -->
+<div class="glass-panel rounded-xl p-5 flex flex-col justify-between h-36 relative overflow-hidden group">
+<div class="absolute -bottom-10 -right-10 w-24 h-24 bg-primary/5 blur-[40px] rounded-full group-hover:bg-primary/15 transition-all"></div>
+<div class="flex justify-between items-start">
+<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/80">
+<span class="material-symbols-outlined text-[20px]">spatial_audio_off</span>
+</div>
+<!-- Toggle Switch -->
+<div class="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 border-background-dark appearance-none cursor-pointer top-1 left-1 transition-all duration-300" id="surround-toggle" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-white/10 cursor-pointer border border-white/10" for="surround-toggle"></label>
+</div>
+</div>
+<div>
+<h3 class="text-white font-medium text-sm mb-1">3D Surround</h3>
+<p class="text-white/40 text-xs">Immersive audio</p>
+</div>
+</div>
+<!-- Vocal Booster -->
+<div class="glass-panel rounded-xl p-5 flex flex-col justify-between h-36 relative overflow-hidden group">
+<div class="absolute -top-10 -left-10 w-24 h-24 bg-primary/5 blur-[40px] rounded-full group-hover:bg-primary/15 transition-all"></div>
+<div class="flex justify-between items-start">
+<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">mic</span>
+</div>
+<!-- Toggle Switch (Active) -->
+<div class="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 border-primary appearance-none cursor-pointer top-1 right-1 transition-all duration-300" id="vocal-toggle" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-primary cursor-pointer border border-primary shadow-neon-sm" for="vocal-toggle"></label>
+</div>
+</div>
+<div>
+<h3 class="text-white font-medium text-sm mb-1">Vocal Boost</h3>
+<p class="text-primary text-xs font-mono">ON</p>
+</div>
+</div>
+</div>
+<!-- Gain Control -->
+<div class="glass-panel rounded-xl p-5 relative overflow-hidden group">
+<div class="flex justify-between items-center mb-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/80">
+<span class="material-symbols-outlined text-[20px]">volume_up</span>
+</div>
+<span class="text-white font-medium text-base">Pre-Amp Gain</span>
+</div>
+<span class="font-mono text-white text-sm font-bold bg-white/5 px-2 py-1 rounded border border-white/5">+2.0 dB</span>
+</div>
+<!-- Custom Scale -->
+<div class="relative h-10 w-full flex items-center justify-center">
+<div class="absolute w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent top-1/2 -translate-y-1/2"></div>
+<!-- Ticks -->
+<div class="w-full flex justify-between px-2 absolute top-1/2 -translate-y-1/2 opacity-30">
+<div class="h-2 w-px bg-white"></div>
+<div class="h-1 w-px bg-white"></div>
+<div class="h-1 w-px bg-white"></div>
+<div class="h-1 w-px bg-white"></div>
+<div class="h-2 w-px bg-white"></div>
+<div class="h-1 w-px bg-white"></div>
+<div class="h-1 w-px bg-white"></div>
+<div class="h-1 w-px bg-white"></div>
+<div class="h-2 w-px bg-white"></div>
+</div>
+<!-- Slider Thumb -->
+<div class="absolute left-[60%] top-1/2 -translate-y-1/2 w-8 h-8 bg-glass-surface backdrop-blur-md rounded-full border border-primary/50 shadow-neon cursor-grab flex items-center justify-center z-10">
+<div class="w-2 h-2 bg-primary rounded-full"></div>
+</div>
+</div>
+<div class="flex justify-between text-[10px] text-white/30 font-mono mt-1 px-1">
+<span>-12dB</span>
+<span>0dB</span>
+<span>+12dB</span>
+</div>
+</div>
+<button class="w-full py-4 mt-4 rounded-xl bg-primary text-white font-bold tracking-wide shadow-neon hover:bg-primary-glow transition-all active:scale-[0.98]">
+                Save as Preset
+            </button>
+<div class="h-6"></div> <!-- Spacer -->
+</div>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="glass-panel border-t border-glass-border fixed bottom-0 w-full z-30 pb-safe">
+<div class="flex justify-around items-center h-16 px-2">
+<a class="flex flex-col items-center justify-center w-full h-full text-white/40 hover:text-white transition-colors gap-1" href="#">
+<span class="material-symbols-outlined text-[24px]">home</span>
+<span class="text-[10px] font-medium">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full text-white/40 hover:text-white transition-colors gap-1" href="#">
+<span class="material-symbols-outlined text-[24px]">search</span>
+<span class="text-[10px] font-medium">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full text-white/40 hover:text-white transition-colors gap-1" href="#">
+<span class="material-symbols-outlined text-[24px]">library_music</span>
+<span class="text-[10px] font-medium">Library</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full text-primary gap-1 relative" href="#">
+<div class="absolute top-2 w-8 h-8 bg-primary/10 rounded-full blur-md"></div>
+<span class="material-symbols-outlined text-[24px] relative z-10">tune</span>
+<span class="text-[10px] font-medium relative z-10">Settings</span>
+</a>
+</div>
+<!-- Safe area for iPhone home indicator -->
+<div class="h-5 w-full"></div>
+</nav>
+</body></html>

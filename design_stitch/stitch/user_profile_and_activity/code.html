@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hylst Audio Player - User Profile</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#8c2bee",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#191022",
+                        "glass-border": "rgba(255, 255, 255, 0.08)",
+                        "glass-surface": "rgba(255, 255, 255, 0.03)",
+                        "glass-highlight": "rgba(255, 255, 255, 0.15)",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "clash": ["'Clash Display'", "sans-serif"],
+                        "mono": ["'JetBrains Mono'", "monospace"],
+                    },
+                    borderRadius: {
+                        "DEFAULT": "1rem", 
+                        "lg": "2rem", 
+                        "xl": "3rem", 
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        "glass": "0 8px 32px 0 rgba(0, 0, 0, 0.36)",
+                        "neon": "0 0 20px rgba(140, 43, 238, 0.4), 0 0 40px rgba(140, 43, 238, 0.2)",
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar hiding for clean UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Glassmorphism utilities */
+        .glass-panel {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        
+        .glass-card {
+            background: rgba(25, 16, 34, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .avatar-aura {
+            position: relative;
+        }
+        .avatar-aura::before {
+            content: '';
+            position: absolute;
+            inset: -10px;
+            background: radial-gradient(circle, rgba(140,43,238,0.4) 0%, rgba(140,43,238,0) 70%);
+            border-radius: 9999px;
+            z-index: -1;
+            filter: blur(10px);
+        }
+        .avatar-aura::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border: 1px solid rgba(140, 43, 238, 0.3);
+            border-radius: 9999px;
+            z-index: 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white antialiased selection:bg-primary selection:text-white overflow-hidden">
+<div class="relative flex h-full max-h-screen w-full flex-col overflow-hidden bg-background-dark">
+<!-- Abstract Background Glows -->
+<div class="fixed top-[-20%] left-[-20%] w-[80%] h-[60%] rounded-full bg-primary/20 blur-[120px] pointer-events-none"></div>
+<div class="fixed bottom-[-10%] right-[-10%] w-[60%] h-[50%] rounded-full bg-blue-600/10 blur-[100px] pointer-events-none"></div>
+<!-- Header Navigation -->
+<header class="flex items-center justify-between px-6 pt-12 pb-4 z-20 w-full glass-card sticky top-0">
+<button class="text-white/80 hover:text-white transition-colors p-2 -ml-2 rounded-full hover:bg-white/5">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-sm font-semibold tracking-widest uppercase text-white/60">Profile</h1>
+<button class="text-white/80 hover:text-white transition-colors p-2 -mr-2 rounded-full hover:bg-white/5">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</header>
+<!-- Scrollable Content Area -->
+<main class="flex-1 overflow-y-auto no-scrollbar pb-24 z-10 relative">
+<!-- Profile Hero Section -->
+<section class="flex flex-col items-center pt-8 pb-8 px-6 relative">
+<!-- Avatar with Liquid Glass Aura -->
+<div class="relative w-32 h-32 mb-6 avatar-aura group cursor-pointer">
+<div class="absolute inset-0 rounded-full bg-gradient-to-tr from-primary to-purple-400 opacity-20 blur-md group-hover:blur-xl transition-all duration-500"></div>
+<img alt="Profile picture of Alex Rivera" class="w-full h-full rounded-full object-cover border-2 border-white/10 relative z-10 shadow-glass" data-alt="Modern stylized portrait of a man looking forward" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiXdt9zzIbAIpPgAzFJ43xRFgF4vW9n2-MYleU13P27_IVYc6puq0qanEgk7-zT2788akTBVzs8wFE-aqHa95dIRbcha_CMJI4VOxzmwRHDGTKrtS5Nk-4pFs9NLxBn-rZW4DO8ZMEsJPlIwyAnfLJeIOtWOStlQoVJ02BzYBdmLnbX6h5hO-C35ZIUOdtSe1kzJXJ6KkHktT3mrf-sVZ8B0dgxtRKX5g7ikfwh1JN0GDyMf4rO7R6XvUwwhodV_Byps_cfoSjzqK5"/>
+<div class="absolute bottom-1 right-1 z-20 bg-black rounded-full p-1 border border-white/20">
+<div class="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></div>
+</div>
+</div>
+<!-- Name & Handle -->
+<div class="text-center space-y-1 mb-6">
+<h2 class="text-3xl font-clash font-semibold text-white tracking-tight drop-shadow-lg">Alex Rivera</h2>
+<p class="text-primary/80 font-medium text-sm">@arivera_audio • Audiophile &amp; Curator</p>
+</div>
+<!-- Edit Profile Button -->
+<button class="glass-panel px-6 py-2.5 rounded-full text-sm font-semibold text-white hover:bg-white/10 transition-all border border-white/10 flex items-center gap-2 group">
+<span>Edit Profile</span>
+<span class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</section>
+<!-- Glass Stats Bar -->
+<section class="px-4 mb-8">
+<div class="glass-panel rounded-2xl p-6 flex justify-between items-center relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50"></div>
+<div class="flex flex-col items-center gap-1 flex-1 border-r border-white/5">
+<span class="text-xs text-white/50 uppercase tracking-wider font-medium">Hours</span>
+<span class="text-2xl font-mono font-bold text-white tabular-nums tracking-tight">1,240</span>
+</div>
+<div class="flex flex-col items-center gap-1 flex-1 border-r border-white/5 px-2">
+<span class="text-xs text-white/50 uppercase tracking-wider font-medium">Top Artist</span>
+<span class="text-lg font-clash font-bold text-primary truncate max-w-full">Burial</span>
+</div>
+<div class="flex flex-col items-center gap-1 flex-1">
+<span class="text-xs text-white/50 uppercase tracking-wider font-medium">Playlists</span>
+<span class="text-2xl font-mono font-bold text-white tabular-nums tracking-tight">12</span>
+</div>
+</div>
+</section>
+<!-- Top Artists Horizontal Scroller -->
+<section class="mb-8">
+<div class="flex justify-between items-end px-6 mb-4">
+<h3 class="text-lg font-clash font-medium text-white">Top Artists</h3>
+<a class="text-xs text-primary hover:text-white transition-colors" href="#">View All</a>
+</div>
+<div class="flex overflow-x-auto gap-4 px-6 pb-4 no-scrollbar">
+<!-- Artist 1 -->
+<div class="flex flex-col items-center gap-3 min-w-[80px]">
+<div class="w-20 h-20 rounded-full p-[2px] bg-gradient-to-b from-white/20 to-transparent relative group">
+<div class="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<img alt="Musician playing synth" class="w-full h-full rounded-full object-cover border border-white/10" data-alt="Musician playing synth in dark studio" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpyFxPYltiTnW68CeDH57W2_v6ezTEp7xrs7W8gfeomB_fVJ40iqDZFC2n21ZBkPAwNWl2bxaNYCZQwwHJTNeERwovO3COlvRqrLYf2kcEuIc7CHFviTDgh8JXA2fob2rRJ1oalkjyoCMfK2539JRK4UaZDKlQsDzLLg1QYG0BvWXYXR94X0zOT4uX7KgZvTrXScDJNK1P92oHo5BL3RYAn5QFb_ObIfRLFdnGp0-YiGYu58dAAqfxRIhnikX30B0y5oFrsMpobNOs"/>
+</div>
+<span class="text-xs font-medium text-white/80">Burial</span>
+</div>
+<!-- Artist 2 -->
+<div class="flex flex-col items-center gap-3 min-w-[80px]">
+<div class="w-20 h-20 rounded-full p-[2px] bg-gradient-to-b from-white/20 to-transparent relative group">
+<div class="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<img alt="Abstract neon portrait" class="w-full h-full rounded-full object-cover border border-white/10" data-alt="Abstract neon light portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrtl19APC4qVICdn9XusZ7QoOjqTQJLfgwi0C_SxKOxW3KPPRVRC_rbUleN9H-DjLKMgl9LiKbi65hnq_nIF7H3k5LCj33VTpMDH2GYy0e-pIfFcDEMp8i15LG_1rmcHdDut3a_Tnz1yOD7mHrAhhrKdoqR26XYG7RqRyDnxgkj0FXF9XBs1xgjOv-n2uuR4lNtQD7JpDK8aX9-n13cDow1PlhYMlJeNPWiazF83_mQa4wvevYrVqCYlIeLV4I2cFn8-wAk8wyxRyU"/>
+</div>
+<span class="text-xs font-medium text-white/80">Aphex Twin</span>
+</div>
+<!-- Artist 3 -->
+<div class="flex flex-col items-center gap-3 min-w-[80px]">
+<div class="w-20 h-20 rounded-full p-[2px] bg-gradient-to-b from-white/20 to-transparent relative group">
+<div class="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<img alt="Surfer catching wave" class="w-full h-full rounded-full object-cover border border-white/10" data-alt="Stylized artistic photo of a wave" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP_9vX12H3_1MIIVGomgiBgJ6RljaHjsph-E_gpf_5574m7aGpm53NWjcwWVnD_9StJ2zzFWucopqSp_u1ufW0MK0wTG0M0vwCFgA_AM3H0qtXZ3LMVPMjmjsO4i5qLMrfFv-nN8RAKD_-tp818eIye2hqbRofSSm9KwkzHidznSdj2aNFhFCfoz4XBkiioFXd4VqjpRk9oaUeO3BOastil5rFUKIKOXsUlrAM-KTxOGT0x1jQAbjAP5835bsh6xkzmFBdqSBVk_Gw"/>
+</div>
+<span class="text-xs font-medium text-white/80">M83</span>
+</div>
+<!-- Artist 4 -->
+<div class="flex flex-col items-center gap-3 min-w-[80px]">
+<div class="w-20 h-20 rounded-full p-[2px] bg-gradient-to-b from-white/20 to-transparent relative group">
+<div class="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<img alt="Abstract colorful smoke" class="w-full h-full rounded-full object-cover border border-white/10" data-alt="Abstract colorful smoke shapes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3W0PmupDfO6EMuZvtMoy8jtp71Db1GkoNyIkzMDhn809cpQkwV7DPpQ2vxGoEoTZSUVg7wdBlmQj3Y5h9c_M6W99-3hpRJzJDFWJJUbPTUvfLMUdYZQjsWQmC-jbUYmI1FhV-ouWPCcwBhPNlvPbIa-zOr9_HSqi7dYZlvUB7ubmSc71uSzj9dDLzq6Zpuw8xM79sQFoOpt2GW-9sWd82ie2P6lrcR6IazKcjfymy-etIeIocJrigDKDSoJntNt9yJ1fcoaBKX4fv"/>
+</div>
+<span class="text-xs font-medium text-white/80">Four Tet</span>
+</div>
+</div>
+</section>
+<!-- Listening Activity Timeline -->
+<section class="px-6 mb-6">
+<h3 class="text-lg font-clash font-medium text-white mb-4">Listening Activity</h3>
+<div class="space-y-4 relative">
+<!-- Vertical Line -->
+<div class="absolute left-[26px] top-4 bottom-4 w-[2px] bg-gradient-to-b from-primary/50 to-transparent rounded-full z-0"></div>
+<!-- Activity Item 1 (Active/Recent) -->
+<div class="relative z-10 pl-16 group">
+<!-- Icon indicator -->
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-[54px] h-[54px] flex items-center justify-center">
+<div class="w-3 h-3 bg-primary rounded-full shadow-[0_0_12px_rgba(140,43,238,0.8)] border border-white/20"></div>
+</div>
+<!-- Card -->
+<div class="glass-card p-3 rounded-[24px] flex items-center gap-4 hover:bg-white/5 transition-all cursor-pointer border-l-4 border-l-primary shadow-neon">
+<div class="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0">
+<img alt="Dark abstract album art" class="w-full h-full object-cover" data-alt="Dark abstract geometric shapes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQtxdqgDZ3EdCY9SHiyW7Cjdq3YV0P3Xve3Dg8D2YUEdWy1hgxX3AXjf6A6BsRMx-i4brJOluj3ydYSgkJT0fx8ix1Fwb5-OeHDAh7pxF-IQWDBKTj-aG3m3yEo7uR2BxYO8Ajo4zKl5O-x--GGmUr8qVoymyyj_DINiSifKbyK4iGl-jU1KZWuMZffPgt098cD7yKVkeS98_s-mxllbUokNBbH5MwtSmjAdYhuEc5kWtkjdndGXuBWbMNBNwMlLUqkV8nibX-tu2V"/>
+<div class="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+<span class="material-symbols-outlined text-white text-sm">equalizer</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-white font-medium truncate text-sm">Archangel</h4>
+<p class="text-white/50 text-xs truncate">Burial</p>
+</div>
+<span class="text-primary font-mono text-[10px] bg-primary/10 px-2 py-1 rounded-full border border-primary/20">2m ago</span>
+</div>
+</div>
+<!-- Activity Item 2 -->
+<div class="relative z-10 pl-16 group">
+<!-- Icon indicator -->
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-[54px] h-[54px] flex items-center justify-center">
+<div class="w-2 h-2 bg-white/20 rounded-full group-hover:bg-primary/50 transition-colors"></div>
+</div>
+<!-- Card -->
+<div class="glass-card p-3 rounded-[24px] flex items-center gap-4 hover:bg-white/5 transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-primary/50">
+<div class="w-12 h-12 rounded-2xl overflow-hidden shrink-0">
+<img alt="Liquid abstract cover" class="w-full h-full object-cover opacity-80" data-alt="Liquid abstract colorful background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz6QwGkekTXpNL8UxBBt8pN0mOreVynfredvk5-DANv7s-e7yyGmZFOYTAnATImYEhBvXCj_tgxYFfHbbw6VrTvPrZr2eukyaztynBAYbJ9lo-9qw9ZGHxLDITGk_8hi4_QQZuRl3HBsKt2k3c9s7WIMCFzONzW7aWriplGfVNG4fx86xPm9bMyj5I029BYDF6I-IUBxolTbXQucbm429tlSis5hDqguhprvmtYraKPMO1wJUIbOZPwfmotsWDbaYZiN99jkokYe07"/>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-white/90 font-medium truncate text-sm">Xtal</h4>
+<p class="text-white/40 text-xs truncate">Aphex Twin</p>
+</div>
+<span class="text-white/30 font-mono text-[10px]">15m ago</span>
+</div>
+</div>
+<!-- Activity Item 3 -->
+<div class="relative z-10 pl-16 group">
+<!-- Icon indicator -->
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-[54px] h-[54px] flex items-center justify-center">
+<div class="w-2 h-2 bg-white/20 rounded-full group-hover:bg-primary/50 transition-colors"></div>
+</div>
+<!-- Card -->
+<div class="glass-card p-3 rounded-[24px] flex items-center gap-4 hover:bg-white/5 transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-primary/50">
+<div class="w-12 h-12 rounded-2xl overflow-hidden shrink-0">
+<img alt="Neon city night cover" class="w-full h-full object-cover opacity-80" data-alt="Neon city night lights blur" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBB1LTEEFu1oKwroCVkkK8tA5m7IuBqO7ImlMEMqcbeAEoHZnU5e1T1BTJDneHcjy-84o_9pHsQhbRmp7RS8wm7W735qY0t9ybJPM-P3naBZ2pIMlhgihkbTHT0y12Lwb-eGkrKLzR8hV-HN8GusJ8fdX2jCgjr_Vq4SAIF22NW3nfOJ6U5Gojj8CQmz6-MwbAEK482p_MR-R8oNV0tkxbElRErp4pnN4OqRmXxpXxrZwZwCu4j4HpzJy_rmEckco2k-NfdMAN3YGp"/>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-white/90 font-medium truncate text-sm">Midnight City</h4>
+<p class="text-white/40 text-xs truncate">M83</p>
+</div>
+<span class="text-white/30 font-mono text-[10px]">1h ago</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Glassmorphic) -->
+<nav class="absolute bottom-0 w-full glass-card border-t border-white/10 pb-6 pt-2 z-50">
+<div class="flex justify-around items-center px-2">
+<a class="flex flex-col items-center gap-1 p-2 text-white/40 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">home</span>
+<span class="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 p-2 text-white/40 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">search</span>
+<span class="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1">Search</span>
+</a>
+<!-- Floating Action Button Style Center Item -->
+<div class="relative -top-6">
+<button class="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-white shadow-[0_0_20px_rgba(140,43,238,0.5)] border border-white/20 hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-3xl">play_arrow</span>
+</button>
+</div>
+<a class="flex flex-col items-center gap-1 p-2 text-white/40 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">library_music</span>
+<span class="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1">Library</span>
+</a>
+<a class="flex flex-col items-center gap-1 p-2 text-white transition-colors relative" href="#">
+<span class="material-symbols-outlined text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">person</span>
+<div class="absolute -bottom-1 w-1 h-1 bg-primary rounded-full"></div>
+</a>
+</div>
+</nav>
+</div>
+</body></html>

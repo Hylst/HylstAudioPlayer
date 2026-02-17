@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hylst Audio Player - Search &amp; Discovery</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;family=Clash+Display:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b4bee",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101322",
+                        "glass-border": "rgba(255, 255, 255, 0.1)",
+                        "glass-surface": "rgba(255, 255, 255, 0.03)",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"],
+                        "clash": ["Clash Display", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                    backdropBlur: {
+                        'xs': '2px',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom Styles for Liquid Glass 2026 */
+        body {
+            font-family: 'Spline Sans', sans-serif;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Clash Display', sans-serif;
+        }
+
+        .liquid-bg {
+            background: radial-gradient(circle at 50% 0%, rgba(43, 75, 238, 0.15), transparent 70%),
+                        radial-gradient(circle at 80% 30%, rgba(100, 50, 200, 0.1), transparent 50%),
+                        radial-gradient(circle at 20% 80%, rgba(43, 75, 238, 0.05), transparent 60%);
+        }
+
+        .glass-panel {
+            background: rgba(16, 19, 34, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 15px rgba(43, 75, 238, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .glass-input:focus-within {
+            border-color: rgba(43, 75, 238, 0.5);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 20px rgba(43, 75, 238, 0.25);
+        }
+
+        .glass-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .glass-card:active {
+             background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+        }
+
+        /* Hide Scrollbar but keep functionality */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .text-glow {
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-active {
+            color: #fff;
+        }
+        
+        .nav-active::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            background: #2b4bee;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #2b4bee;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-white overflow-x-hidden liquid-bg selection:bg-primary selection:text-white">
+<!-- Top Sticky Header Area -->
+<div class="sticky top-0 z-40 px-5 pt-8 pb-4 glass-panel rounded-b-2xl border-t-0 border-x-0">
+<!-- Search Input -->
+<label class="group flex flex-col w-full h-14 relative z-10">
+<div class="glass-input flex w-full flex-1 items-center rounded-2xl px-4 overflow-hidden">
+<div class="text-white/60 flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[24px]">search</span>
+</div>
+<input class="w-full bg-transparent border-none text-white placeholder:text-white/40 focus:ring-0 text-lg font-display font-normal h-full py-0 px-0 caret-primary" placeholder="Search tracks, artists..." value=""/>
+<div class="text-primary flex items-center justify-center ml-2 cursor-pointer hover:text-primary/80 transition-colors">
+<span class="material-symbols-outlined text-[24px]">mic</span>
+</div>
+</div>
+</label>
+<!-- Recent Searches Chips -->
+<div class="flex gap-3 mt-5 overflow-x-auto hide-scrollbar pb-1 mask-linear-fade">
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 active:bg-white/20 px-4 transition-all">
+<span class="material-symbols-outlined text-[16px] text-white/60">history</span>
+<p class="text-white/90 text-sm font-medium whitespace-nowrap">Hans Zimmer</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 active:bg-white/20 px-4 transition-all">
+<span class="material-symbols-outlined text-[16px] text-white/60">history</span>
+<p class="text-white/90 text-sm font-medium whitespace-nowrap">Lo-Fi Beats</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 active:bg-white/20 px-4 transition-all">
+<span class="material-symbols-outlined text-[16px] text-white/60">trending_up</span>
+<p class="text-white/90 text-sm font-medium whitespace-nowrap">Techno Bunker</p>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 active:bg-white/20 px-4 transition-all">
+<span class="material-symbols-outlined text-[16px] text-white/60">history</span>
+<p class="text-white/90 text-sm font-medium whitespace-nowrap">Podcast</p>
+</button>
+</div>
+</div>
+<!-- Main Content Scroll Area -->
+<div class="pb-32 space-y-8 mt-6">
+<!-- Trending Now Section -->
+<section class="pl-5">
+<div class="flex justify-between items-end pr-5 mb-4">
+<h2 class="text-2xl font-bold tracking-tight text-white text-glow">Trending Now</h2>
+<a class="text-primary text-xs font-semibold tracking-wider uppercase hover:text-white transition-colors mb-1" href="#">See All</a>
+</div>
+<div class="flex gap-4 overflow-x-auto hide-scrollbar pr-5 pb-4">
+<!-- Card 1 -->
+<div class="relative shrink-0 w-64 h-80 rounded-2xl overflow-hidden group cursor-pointer shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/5">
+<img alt="Artist Image" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Surfer catching a wave during sunset representing freedom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWmn-3apeZDFmXu4bcWSXTNqIN7k-Rq_RdqYpTFSz0oQTwmRu3czFd1CclVT3tmpxUKrW5dfuSuU0eS5NETyADH7XOataP_BF11whpkj8duAwM36q4pwtYMwQPwLRvDssFogrUpBHQu6sZQhzSlX9bPgBbn4CwFNc6tQaJIWqraSe4vr5s9uIE0Q5x95Z7VhTeOJ0FPZCOf3Zc7RIA8HcpicbOQB04nalVIXF8DtTek6wXrb46ab4hfMNnRpJBb6QYQc3Ui2iHCDCO"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-5 w-full">
+<div class="mb-2 inline-flex px-2 py-0.5 rounded border border-white/20 bg-white/10 backdrop-blur-md text-[10px] uppercase tracking-widest font-bold text-white/80">
+                            #1 Global
+                        </div>
+<h3 class="text-3xl font-bold text-white leading-none mb-1">The Weeknd</h3>
+<p class="text-white/60 text-sm font-medium">105M Monthly Listeners</p>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="relative shrink-0 w-64 h-80 rounded-2xl overflow-hidden group cursor-pointer shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/5">
+<img alt="Artist Image" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Abstract vibrant geometric shapes glowing in dark" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCC4qMX-hkKf0qKDA2_NubHSoAIBNJvfcJYWcg4yFZ-vajEfim0Est6-7x6OFC9PUaUo9bLYByEj3YZAX2CDiYjxrJLfbBIfA0KqT-N108IELbsf5GtrIrgEfJpw3we82q6mEVSOe3O-S5Fmx5dlJ2DVcrkrHUHqvqce8uKzmxgfGJu0RV1AkwnH_lg39Pw0uzW_h9A4GF93O2Ah39wV1WnxMjuT076bniPWaWJLtmRJL3b_yAzmmvta_3kzFOIljvNYrM9Lt1aTp7D"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-5 w-full">
+<div class="mb-2 inline-flex px-2 py-0.5 rounded border border-white/20 bg-white/10 backdrop-blur-md text-[10px] uppercase tracking-widest font-bold text-white/80">
+                            New Release
+                        </div>
+<h3 class="text-3xl font-bold text-white leading-none mb-1">Dua Lipa</h3>
+<p class="text-white/60 text-sm font-medium">88M Monthly Listeners</p>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="relative shrink-0 w-64 h-80 rounded-2xl overflow-hidden group cursor-pointer shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/5">
+<img alt="Artist Image" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Futuristic neon city lights reflection on wet street" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvFYYK4lnfXU2vv5Hl4esm8bUiaDYwm_2H-QaZQs8rbPDivCIUhGC9xJw4f8yaxLetRG1hSseRr7sMYNS_4ww34zgNyKMZRjqz6LkKYwqeoTZyAEDc2YTJq-j063u6wBLBb443AxzgyhAv2faAAlKqnbzz-Vc1k4YrSnLMDSQEfAOwa3cj1GZeDkqN3m-ZrHUPQUnqD9KL8RZVW9PgnvB7iU5dcd1uLvW0bV-rXnTB0ENRTflhi-kZhqu2ho5p7H1f7pU7hxO7kUef"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-5 w-full">
+<div class="mb-2 inline-flex px-2 py-0.5 rounded border border-white/20 bg-white/10 backdrop-blur-md text-[10px] uppercase tracking-widest font-bold text-white/80">
+                            Rising Star
+                        </div>
+<h3 class="text-3xl font-bold text-white leading-none mb-1">Fred Again..</h3>
+<p class="text-white/60 text-sm font-medium">24M Monthly Listeners</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Moods & Genres Section -->
+<section class="px-5">
+<h2 class="text-2xl font-bold tracking-tight text-white mb-4 text-glow">Explore Vibes</h2>
+<div class="grid grid-cols-2 gap-3">
+<!-- Mood Tile 1 -->
+<div class="group relative h-28 rounded-xl overflow-hidden glass-card cursor-pointer">
+<div class="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-gradient-to-br from-indigo-500/30 to-purple-600/30"></div>
+<img alt="Abstract Pattern" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay" data-alt="Abstract blue liquid waves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbxOhiPk7NaHGk7DNIvQl8_oTjwC6ht-rQS-_KQuVDhwtr5Vz0S5HPsl4uUOkB4SLyLjCj8B3_jA-CRD-p6Gnr4_5dzuumRPAy3Rl6gxZsmlCUf04ERCcZ6UTZfz5ILzuKZB5ojWKIaaKhLxULtZLe_PMqVY8hoECevCg5cVbS4OBcDUYPJgSOThyY44FivPPHB8xLUA4Uo4FcHgO70nGVPAWsg76wMOnYTTDO-CkJW9X1NftWXaKYX6Di4SAULod9JbbSdriA1fWu"/>
+<div class="absolute inset-0 flex flex-col justify-end p-4">
+<span class="material-symbols-outlined text-white/80 mb-1">self_improvement</span>
+<h3 class="font-bold text-lg text-white">Deep Focus</h3>
+</div>
+</div>
+<!-- Mood Tile 2 -->
+<div class="group relative h-28 rounded-xl overflow-hidden glass-card cursor-pointer">
+<div class="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-gradient-to-br from-orange-500/30 to-red-600/30"></div>
+<img alt="Abstract Pattern" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay" data-alt="Abstract orange fire texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAU1XkhQqSvfvXARyeXhFTSLuiDONwKXczI8yR2qIxsCJ6cgjPNN6J5Y_30-Pnnhz23tWkdc3y3BK8GAUFVALxQUt5SdDfkBqdQHOCp_eht2AKWMo9aeNVpmo7LPziObgpew4iuDG42niHgIGij5T5erARsqfDdwHKTOpUH7vvdvXtr8BV9L6yg0kKEf6Y38xgL4fdOmyeOiKbgqxfipIOHC_-eGXJgVgQezHacst8D2-TAiJkI31OJh5gJrzec0AjnxCfad999u7fC"/>
+<div class="absolute inset-0 flex flex-col justify-end p-4">
+<span class="material-symbols-outlined text-white/80 mb-1">bolt</span>
+<h3 class="font-bold text-lg text-white">High Energy</h3>
+</div>
+</div>
+<!-- Mood Tile 3 -->
+<div class="group relative h-28 rounded-xl overflow-hidden glass-card cursor-pointer">
+<div class="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-gradient-to-br from-emerald-500/30 to-teal-600/30"></div>
+<img alt="Abstract Pattern" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay" data-alt="Abstract green nature leaves blurred" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUfeFtgXotNd-hb4wodc-cGzw1A4sNnRieWf1SLvmPOHyAevendbPqk9YlyfmSfyTpgkzBTc9zgvkeRP8MyvxdWOzMYkTHEuLC2XVsnNO2AJeY_ZO70wlSswn6YKSZEZpjVVdF-egiJNj409RuiEx8DnFo3mLjHrVyMT0_jCKjkgXBpesHyt5QoUrxI_AfYdn35D5XYGfx7FcO37ajMHCb2dmXxuYx6mg5T2mkOjQobivLO9Kt9O8amlShjoJeMJJzYGuo0frsvKQd"/>
+<div class="absolute inset-0 flex flex-col justify-end p-4">
+<span class="material-symbols-outlined text-white/80 mb-1">nature</span>
+<h3 class="font-bold text-lg text-white">Nature</h3>
+</div>
+</div>
+<!-- Mood Tile 4 -->
+<div class="group relative h-28 rounded-xl overflow-hidden glass-card cursor-pointer">
+<div class="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-gradient-to-br from-pink-500/30 to-rose-600/30"></div>
+<img alt="Abstract Pattern" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay" data-alt="Abstract pink neon lights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyP71hSd62L0tdaVzHW-U4PGT1JYQFSY5FeuT6R5ibt6NLtQpZetS8TF19z3QAbrJWTG1bX-aCO1iKdqAcClVTEmZZrnjh53j8uhNRL-wbU62KEc1zh5Izq4yT3xwdGhqztlUiI5gk6hVsBT72C-_Mu4uQjHdKF0iYSvsw-onf3io-Cl8Vihp_ofrNhcPdKPJH8MeVe1KauQfoZ7ApXn5La1C1KzbXTVbdD8xZmhUfY63YfvTAg-n9R929E1DRPBkqiY7T0lvG9zwh"/>
+<div class="absolute inset-0 flex flex-col justify-end p-4">
+<span class="material-symbols-outlined text-white/80 mb-1">favorite</span>
+<h3 class="font-bold text-lg text-white">Romance</h3>
+</div>
+</div>
+<!-- Mood Tile 5 -->
+<div class="group relative h-28 rounded-xl overflow-hidden glass-card cursor-pointer">
+<div class="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-gradient-to-br from-blue-500/30 to-cyan-600/30"></div>
+<img alt="Abstract Pattern" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay" data-alt="Abstract blue water texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJ5BpjC_TNFCZ-DzOi37Pk7z_dqebaxhg8qBJN6BL1uLO3xQ9p6RFCCNC3tREHoDjZ2e7sKE3kve21WED91bCZzM7M3GcW4I9d_aSG-1agWANj3y1QzZmMA6bwQ9Y72PWT3s8Yyb9BPmF8LW1bUZqHxPFjaXIYB7YaBA_Hc8ZA2YcQb0BYtqnpq1EKoYn896BfWYy6Jvct-ZIWm5X_yJklAUQKJ3dXg2-Wgr56iAQISdAjKJ9N-VO7gjEcbQRrI_skrZh6VGQTlOQr"/>
+<div class="absolute inset-0 flex flex-col justify-end p-4">
+<span class="material-symbols-outlined text-white/80 mb-1">bedtime</span>
+<h3 class="font-bold text-lg text-white">Sleep</h3>
+</div>
+</div>
+<!-- Mood Tile 6 -->
+<div class="group relative h-28 rounded-xl overflow-hidden glass-card cursor-pointer">
+<div class="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity bg-gradient-to-br from-yellow-500/30 to-amber-600/30"></div>
+<img alt="Abstract Pattern" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay" data-alt="Abstract yellow sunshine" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDC6esk8U28xOz1KLTfF9faJ7ZkK5MhXxdbjxvw9hI_BjrwVZvd3VAPPUxPcLTbx495BZEdgfjo5-MUzb0y0bgvoZ3C97xLo3J7nvq1eQCXYH9NGdmk-DKsKd5IhcZG94SG1QmGEXg6MJJXJTjXiAgNEyOnNOCXjvWe5aeK3qoSl42JX61_dWcaMNCkLTYzTQ06FjlRrbz2ymKS1egGPkvmTsf7vdUquU7yLIoMC6FO8lkQ4eaSBZlwwsyKKg2_kLaNmMrXfFQwkUFK"/>
+<div class="absolute inset-0 flex flex-col justify-end p-4">
+<span class="material-symbols-outlined text-white/80 mb-1">wb_sunny</span>
+<h3 class="font-bold text-lg text-white">Summer</h3>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Mini Player & Bottom Navigation (Docked) -->
+<div class="fixed bottom-0 left-0 w-full z-50">
+<!-- Floating Mini Player -->
+<div class="px-2 mb-2">
+<div class="bg-background-dark/80 backdrop-blur-xl border border-white/10 rounded-xl p-2 flex items-center shadow-2xl relative overflow-hidden">
+<!-- Progress Bar Background -->
+<div class="absolute bottom-0 left-0 h-[2px] bg-primary w-1/3 z-10"></div>
+<div class="absolute bottom-0 left-0 h-[2px] bg-white/10 w-full"></div>
+<div class="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 mr-3">
+<img alt="Album Art" class="w-full h-full object-cover" data-alt="Album art with abstract dark blue shapes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOFwyI2xS2MZloRMZ6vCq4K7vPnpJG-tWVWr5csburKrGRiTj_34I4uAyU3jHhGh-fUcOODVCoaTS3SJVmHnrGnaSKjq2pXbKP1xwLTT4E92mXvTQGE4N8OZDZsJ3_wqu-0UkZJRbC5hKp_9VF8jGPSx2Zw29C6UCL0aBuaVG2T8DdqvUT-1OV4WfuwaU_cOMsi5L6_a8oiHifD-hQhY-WqFqo5roB45Z2qgpunOx0RgZ2kFPKw0-s2YVnfLNedlnmxsI0g6FqkTG1"/>
+</div>
+<div class="flex-1 min-w-0 pr-2">
+<h4 class="text-white text-sm font-bold truncate leading-tight">Midnight City</h4>
+<p class="text-white/50 text-xs truncate">M83 • Hurry Up, We're Dreaming</p>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<button class="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white">
+<span class="material-symbols-outlined text-[24px]">favorite</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-white bg-white/10 rounded-full hover:bg-white/20 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[24px] fill-current">play_arrow</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation -->
+<div class="glass-panel border-t border-glass-border px-6 pb-6 pt-3 flex justify-between items-end rounded-t-3xl">
+<a class="flex flex-col items-center gap-1 relative group w-12" href="#">
+<span class="material-symbols-outlined text-[26px] text-white/40 group-hover:text-white/80 transition-colors">home</span>
+<span class="text-[10px] font-medium text-white/40">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 relative group w-12 nav-active" href="#">
+<span class="material-symbols-outlined text-[26px] text-white transition-colors">search</span>
+<span class="text-[10px] font-medium text-white">Search</span>
+</a>
+<a class="flex flex-col items-center gap-1 relative group w-12" href="#">
+<span class="material-symbols-outlined text-[26px] text-white/40 group-hover:text-white/80 transition-colors">library_music</span>
+<span class="text-[10px] font-medium text-white/40">Library</span>
+</a>
+<a class="flex flex-col items-center gap-1 relative group w-12" href="#">
+<span class="material-symbols-outlined text-[26px] text-white/40 group-hover:text-white/80 transition-colors">person</span>
+<span class="text-[10px] font-medium text-white/40">Profile</span>
+</a>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hylst Audio Player - Library</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#6467f2",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101122",
+                        "glass-border": "rgba(255, 255, 255, 0.08)",
+                        "glass-surface": "rgba(255, 255, 255, 0.03)",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "clash": ["Clash Display", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "1.5rem", "xl": "2rem", "2xl": "2.5rem", "full": "9999px"},
+                    backdropBlur: {
+                        'xs': '2px',
+                        'lg': '16px',
+                        'xl': '24px',
+                        '2xl': '40px',
+                    }
+                },
+            },
+        }
+    </script>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-clash {
+            font-family: 'Clash Display', sans-serif;
+        }
+        /* Custom scrollbar hiding for clean UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .glass-panel {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .glow-card-blue {
+            box-shadow: 0 0 20px -5px rgba(100, 103, 242, 0.3);
+            border: 1px solid rgba(100, 103, 242, 0.3);
+        }
+        .glow-card-pink {
+            box-shadow: 0 0 20px -5px rgba(236, 72, 153, 0.3);
+            border: 1px solid rgba(236, 72, 153, 0.3);
+        }
+        .glow-card-orange {
+            box-shadow: 0 0 20px -5px rgba(249, 115, 22, 0.3);
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+        .glow-card-cyan {
+            box-shadow: 0 0 20px -5px rgba(6, 182, 212, 0.3);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+        .glow-card-purple {
+            box-shadow: 0 0 20px -5px rgba(168, 85, 247, 0.3);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+        .glow-card-white {
+            box-shadow: 0 0 20px -5px rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-[#0a0a12] text-white min-h-screen overflow-hidden relative selection:bg-primary selection:text-white">
+<!-- Background Ambient Gradients -->
+<div class="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[40%] rounded-full bg-primary/20 blur-[120px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[40%] rounded-full bg-purple-500/10 blur-[120px]"></div>
+</div>
+<!-- Main Container -->
+<div class="relative w-full h-screen flex flex-col z-10">
+<!-- Header (Glass) -->
+<header class="absolute top-0 left-0 w-full z-50 px-5 pt-14 pb-4 flex items-center justify-between glass-panel rounded-b-[2rem] border-t-0 border-x-0">
+<button class="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[28px]">menu</span>
+</button>
+<h1 class="font-clash font-bold text-2xl tracking-wide bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">HAP</h1>
+<button class="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[28px]">search</span>
+</button>
+</header>
+<!-- Scrollable Content -->
+<main class="flex-1 overflow-y-auto no-scrollbar pt-32 pb-44 px-5 w-full max-w-md mx-auto">
+<!-- Filters -->
+<div class="flex gap-3 pb-6 overflow-x-auto no-scrollbar mask-gradient-r">
+<button class="px-5 py-2.5 rounded-full bg-white text-black font-medium text-sm shadow-[0_0_15px_rgba(255,255,255,0.3)] whitespace-nowrap">
+                    All
+                </button>
+<button class="px-5 py-2.5 rounded-full glass-panel text-white/70 font-medium text-sm hover:bg-white/10 whitespace-nowrap transition-all border border-white/10">
+                    Albums
+                </button>
+<button class="px-5 py-2.5 rounded-full glass-panel text-white/70 font-medium text-sm hover:bg-white/10 whitespace-nowrap transition-all border border-white/10">
+                    Artists
+                </button>
+<button class="px-5 py-2.5 rounded-full glass-panel text-white/70 font-medium text-sm hover:bg-white/10 whitespace-nowrap transition-all border border-white/10">
+                    Playlists
+                </button>
+</div>
+<!-- Section Title -->
+<h2 class="font-clash font-semibold text-xl mb-4 text-white/90">Recently Added</h2>
+<!-- Grid Layout -->
+<div class="grid grid-cols-2 gap-4 pb-4">
+<!-- Card 1: Midnight City -->
+<div class="group flex flex-col gap-3">
+<div class="relative aspect-square rounded-[1.5rem] overflow-hidden glow-card-purple bg-gray-900">
+<img alt="Abstract neon purple cityscape representing Midnight City album art" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdlzcLNtg4YlZSUAa3UGYR6hUeHkYfRMgLOEBfh7oTfjtsEp1XYIILqUnblRMTgD1vMygbR3KxQ4b_Tm64cmJ8vhxapncbS4KeOBMEABgOq3CUbzRMRNZ52ro_6luo3H5zYjUScktA4HrEvIbaNG3yw2iRSo03EX-yrCunSQob_W_Qmg5R12Zbro6wNaDrfNm5z9seXyLX_yb0oYIvElxVrLXEaCe1qhCGg7FMyzIVuXksYvjq_sa0HSQDBzq_QN0iXOwradDJ0zw4"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+<span class="material-symbols-outlined text-[20px] ml-0.5">play_arrow</span>
+</button>
+</div>
+<div class="px-1">
+<h3 class="text-white font-medium text-base truncate">Midnight City</h3>
+<p class="text-white/50 text-xs font-medium truncate">M83</p>
+</div>
+</div>
+<!-- Card 2: Starboy -->
+<div class="group flex flex-col gap-3">
+<div class="relative aspect-square rounded-[1.5rem] overflow-hidden glow-card-pink bg-gray-900">
+<img alt="Abstract dark pink and red geometric shapes representing Starboy album art" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNgBXMOaPrHI3TF2ZJRLpdyyGsr_I-5H6Oeo0xGMujYeDiCB1TU7vOAaQp_BzgsoaA8ghhy38z0bYoPDS9bIYK0kKHgDpA8dYtDx3ol6LWJJRDTw3kpTF2vpgog2aRl4-RB3qnGKZAID1GwXaLZt-e42rkWpqPqUbGVO3_GsfWH6v60VlxWRPla4JqkSYvGGCQeTjd7rFbrfXLstdMvGXZEKn88_3WTZ0kakujwZsDRU1Si8rTynrfPBFvPYVViLT7Cn1mxIt7u4wH"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+<span class="material-symbols-outlined text-[20px] ml-0.5">play_arrow</span>
+</button>
+</div>
+<div class="px-1">
+<h3 class="text-white font-medium text-base truncate">Starboy</h3>
+<p class="text-white/50 text-xs font-medium truncate">The Weeknd</p>
+</div>
+</div>
+<!-- Card 3: Currents -->
+<div class="group flex flex-col gap-3">
+<div class="relative aspect-square rounded-[1.5rem] overflow-hidden glow-card-cyan bg-gray-900">
+<img alt="Abstract fluid blue liquid waves representing Currents album art" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5PGTCZKDD0w1aRYywGNZaiTK3FMKescGCOzHDThl8VOGXzabTg_sOvjrkTkJ8Qm_WmWoKZNiSzbguWo_1iMYnkN_AYl59qqQb5kylnPUfll-POEbklQVd5ozBycgKtsQGG0zFtMBpDkEsKNWbFXuJNbk1ZYOiwdrRxDGzinHjajXrWwoy2nrPFaOk0Ju4nuRTu_8YnTyKQGgZiCdPI5C9npqPk64s3ic0Uiwyr0MqrsaIAnBs7tl_2Rru9XkUdpf-qCXUHwA2sevS"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+<span class="material-symbols-outlined text-[20px] ml-0.5">play_arrow</span>
+</button>
+</div>
+<div class="px-1">
+<h3 class="text-white font-medium text-base truncate">Currents</h3>
+<p class="text-white/50 text-xs font-medium truncate">Tame Impala</p>
+</div>
+</div>
+<!-- Card 4: Future Nostalgia -->
+<div class="group flex flex-col gap-3">
+<div class="relative aspect-square rounded-[1.5rem] overflow-hidden glow-card-blue bg-gray-900">
+<img alt="Retro futuristic blue grid and moon representing Future Nostalgia album art" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfpeyh6zMjON3jGzSYzl-45V1hI-7VQHl0G2Mu_MowLTnbydkK8apbhKiHKyTZQVd4CamHzUtxrZt1YkAWUTaJlPQDTUOgCQra_lYNqt-u1EsK0URPNvlEQlzn_3zMcjIFZWTz2m6C9bpgW0IrTQ6_0B8MuvPHO7LdVJzMIApo-MemnqcF8V-ptKCy8HQHuZoUYRpVQXn-vfhkuWsvc6GXaeT5en-hVzOVG60TgOK3eDU2cqjCo3DMwNUx6PSUKoIPxDy74YXs6ysl"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+<span class="material-symbols-outlined text-[20px] ml-0.5">play_arrow</span>
+</button>
+</div>
+<div class="px-1">
+<h3 class="text-white font-medium text-base truncate">Future Nostalgia</h3>
+<p class="text-white/50 text-xs font-medium truncate">Dua Lipa</p>
+</div>
+</div>
+<!-- Card 5: Random Access Memories -->
+<div class="group flex flex-col gap-3">
+<div class="relative aspect-square rounded-[1.5rem] overflow-hidden glow-card-white bg-gray-900">
+<img alt="Black and metallic helmet texture representing Random Access Memories album art" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiaUVMQ58XmDKGIAMmW5BcH35QA8QIBafW9bjuvWx4i3yS21Cy6OSxmLEL4Emde1XTVVC-SODp5EmZ64ekXUogHQM7c9KKPObvTUN1539QMeUOVL3vNA5nJNwy7VXgd7JOXgACi57796CfGw5nyOo0yASwj5p1PL4oPUWKasF9bYNz71jDsaeQSLWdvWZAHl8PTf9Z-cPLa9bA-FbjNY0vEy9XWlQV6CigNFuyI5tNQbyDnyJhurD-tTvQDZ63-N6vPw9S-quAzhEn"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+<span class="material-symbols-outlined text-[20px] ml-0.5">play_arrow</span>
+</button>
+</div>
+<div class="px-1">
+<h3 class="text-white font-medium text-base truncate">RAM</h3>
+<p class="text-white/50 text-xs font-medium truncate">Daft Punk</p>
+</div>
+</div>
+<!-- Card 6: After Hours -->
+<div class="group flex flex-col gap-3">
+<div class="relative aspect-square rounded-[1.5rem] overflow-hidden glow-card-orange bg-gray-900">
+<img alt="Abstract orange light streaks and blur representing After Hours album art" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYeDvHyyMBy-sRObJSx5PjZDa5xrL5fqmojSACz5QK1UJL8CD6rdFamY7VZcPncDxt-aviEgM56UXFnISq5VyV0pxl8VnQI6CcMqfLoyjxCYDr8TdKQaYCrdeLNAtgOrACMNnrdoNOdq0PTtNLVtW-7Uaj7MmzeCnjWcBC9Nhq2XW5JJzvvop5d4HnJeTymKE6E3em-j3jh1297dYNplNS4I6EMY3UXP1y2tCepH2PrsvZA0zme3V5yjgO5_oTHs6WiA7Dez3DRpyX"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+<span class="material-symbols-outlined text-[20px] ml-0.5">play_arrow</span>
+</button>
+</div>
+<div class="px-1">
+<h3 class="text-white font-medium text-base truncate">After Hours</h3>
+<p class="text-white/50 text-xs font-medium truncate">The Weeknd</p>
+</div>
+</div>
+</div>
+<div class="h-10"></div>
+</main>
+<!-- Floating UI Container (Fixed Bottom) -->
+<div class="absolute bottom-0 left-0 w-full z-50 flex flex-col items-center">
+<!-- Floating Mini Player -->
+<div class="w-[92%] max-w-md mb-4 glass-panel rounded-full p-2 pr-4 flex items-center gap-3 relative overflow-hidden group/player cursor-pointer hover:bg-white/10 transition-colors">
+<!-- Progress Bar Background (Subtle) -->
+<div class="absolute bottom-0 left-0 w-[45%] h-[2px] bg-primary shadow-[0_0_10px_rgba(100,103,242,0.8)]"></div>
+<!-- Rotating Art -->
+<div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 animate-[spin_8s_linear_infinite] shadow-[0_0_10px_rgba(168,85,247,0.4)]">
+<img alt="Small thumbnail of Midnight City album art" class="w-full h-full object-cover" data-alt="Small thumbnail of Midnight City album art" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjCrOEaKddA9lKFzu5aEdqMCCnVhTRfwpAVVJmEwZ6QZYDsfnJXwJt4oXVPHPO4VkW1anZFg8vILFjQATd4NRNQeC4hgyjgVw-1UQ2HkjPHS1RZNM4POWq9QbCT3Ik50tPfIjCYEt96fD1owy_lRzT1HmLlqIFOb_oF6Z1nQdTskZwfyC33QBZcYswXOz5gt3VvFLM_IeOYq0Bin4MBx-v7LUwnxONYJHLVN5W6UQVz2wUrSvjDOkkYHfNnAVIpKa-npEdT0-OdLq8"/>
+</div>
+<!-- Info -->
+<div class="flex-1 overflow-hidden">
+<h4 class="text-sm font-semibold text-white truncate leading-tight">Midnight City</h4>
+<p class="text-xs text-white/60 truncate font-medium">M83</p>
+</div>
+<!-- Controls -->
+<div class="flex items-center gap-1">
+<button class="w-9 h-9 flex items-center justify-center rounded-full text-white/70 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[24px]">skip_previous</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-white text-black hover:scale-105 transition-transform shadow-[0_0_15px_rgba(255,255,255,0.4)]">
+<span class="material-symbols-outlined text-[24px] fill-current">pause</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center rounded-full text-white/70 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[24px]">skip_next</span>
+</button>
+</div>
+</div>
+<!-- Tab Bar -->
+<div class="w-full glass-panel rounded-t-[2.5rem] border-b-0 px-6 pb-8 pt-4 flex justify-between items-end relative">
+<!-- Background Blur fix for notched phones -->
+<div class="absolute inset-0 -z-10 bg-[#0a0a12]/30 backdrop-blur-xl rounded-t-[2.5rem]"></div>
+<!-- Tab 1: Library (Active) -->
+<a class="flex-1 flex flex-col items-center gap-1 group/tab" href="#">
+<div class="relative p-1">
+<span class="material-symbols-outlined text-[26px] text-white transition-all group-hover/tab:scale-110 fill-1">
+                            library_music
+                        </span>
+<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full shadow-[0_0_8px_#6467f2]"></div>
+</div>
+<span class="text-[10px] font-medium text-white tracking-wide mt-1">Library</span>
+</a>
+<!-- Tab 2: Playlists -->
+<a class="flex-1 flex flex-col items-center gap-1 group/tab" href="#">
+<div class="relative p-1">
+<span class="material-symbols-outlined text-[26px] text-white/50 transition-all group-hover/tab:text-white group-hover/tab:scale-110">
+                            queue_music
+                        </span>
+</div>
+<span class="text-[10px] font-medium text-white/50 group-hover/tab:text-white tracking-wide mt-1">Playlists</span>
+</a>
+<!-- Tab 3: Search/Browse -->
+<a class="flex-1 flex flex-col items-center gap-1 group/tab" href="#">
+<div class="relative p-1">
+<span class="material-symbols-outlined text-[26px] text-white/50 transition-all group-hover/tab:text-white group-hover/tab:scale-110">
+                            explore
+                        </span>
+</div>
+<span class="text-[10px] font-medium text-white/50 group-hover/tab:text-white tracking-wide mt-1">Browse</span>
+</a>
+<!-- Tab 4: More -->
+<a class="flex-1 flex flex-col items-center gap-1 group/tab" href="#">
+<div class="relative p-1">
+<span class="material-symbols-outlined text-[26px] text-white/50 transition-all group-hover/tab:text-white group-hover/tab:scale-110">
+                            more_horiz
+                        </span>
+</div>
+<span class="text-[10px] font-medium text-white/50 group-hover/tab:text-white tracking-wide mt-1">More</span>
+</a>
+</div>
+</div>
+</div>
+</body></html>
