@@ -97,8 +97,8 @@ export class DatabaseManager {
      * Exec SQL query.
      */
     private async exec(sql: string, params: object = {}): Promise<any[]> {
-        const res = await this.send('EXEC_SQL', { sql, params });
-        return res.result;
+        const rows = await this.send('EXEC_SQL', { sql, params });
+        return rows;
     }
 
     // --- Public API ---
