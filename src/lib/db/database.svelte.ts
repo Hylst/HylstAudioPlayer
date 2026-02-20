@@ -15,6 +15,7 @@ interface WorkerRequest {
 export class DatabaseManager {
     // Svelte 5 state
     isReady = $state(false);
+    lastUpdate = $state(0);
     error = $state<string | null>(null);
 
     private worker: Worker | null = null;
@@ -109,10 +110,24 @@ export class DatabaseManager {
 
     async getTrackCount(): Promise<number> {
         const result = await this.exec('SELECT COUNT(*) as count FROM tracks');
-        if (!result || !Array.isArray(result) || result.length === 0) {
-            return 0;
-        }
-        return result[0].count as number;
+        return result?.[0]?.count || 0;
+    }
+
+    async getLibraryStats(): Promise<{ count: number; totalDuration: number }> {
+        const result = await this.exec('SELECT COUNT(*) as count, SUM(duration) as totalDuration FROM tracks');
+        return {
+            count: result?.[0]?.count || 0,
+            totalDuration: result?.[0]?.totalDuration || 0
+        };
+    }
+
+    async getTracksDetailed(orderBy = 'date_added', order = 'DESC'): Promise<Track[]> {
+        // Basic protection against SQL injection for orderBy/order since they are strings
+        const validCols = ['date_added', 'title', 'artist', 'album', 'duration'];
+        const safeOrderBy = validCols.includes(orderBy) ? orderBy : 'date_added';
+        const safeOrder = order === 'ASC' ? 'ASC' : 'DESC';
+
+        return this.exec(`SELECT * FROM tracks ORDER BY ${safeOrderBy} ${safeOrder}`);
     }
 
     async upsertTrack(track: Partial<Track>): Promise<void> {
@@ -121,6 +136,8 @@ export class DatabaseManager {
 
     async upsertTracks(tracks: Partial<Track>[]): Promise<void> {
         await this.send('UPSERT_TRACKS', { tracks });
+        this.lastUpdate++;
+        console.log('[DB] lastUpdate incremented to:', this.lastUpdate);
     }
 
     /**
@@ -171,6 +188,31 @@ export class DatabaseManager {
             console.error('[DB] getPlaylists failed:', err);
             return [];
         }
+    }
+
+    async createPlaylist(name: string, description?: string): Promise<number> {
+        const id = await this.send('CREATE_PLAYLIST', { name, description });
+        this.lastUpdate++;
+        return id;
+    }
+
+    async deletePlaylist(id: number): Promise<void> {
+        await this.send('DELETE_PLAYLIST', { id });
+        this.lastUpdate++;
+    }
+
+    async addTrackToPlaylist(playlistId: number, trackId: number): Promise<void> {
+        await this.send('ADD_TRACK_TO_PLAYLIST', { playlistId, trackId });
+        this.lastUpdate++;
+    }
+
+    async removeTrackFromPlaylist(playlistId: number, trackId: number): Promise<void> {
+        await this.send('REMOVE_TRACK_FROM_PLAYLIST', { playlistId, trackId });
+        this.lastUpdate++;
+    }
+
+    async getTracksByPlaylist(playlistId: number): Promise<Track[]> {
+        return this.send('GET_PLAYLIST_TRACKS', { playlistId });
     }
 }
 

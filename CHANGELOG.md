@@ -7,6 +7,14 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 - **Phase 4** : moteur audio (Playback, EQ, Visualizer).
 - **Phase 5** : APIs externes (AcoustID, MusicBrainz).
 
+## [0.4.0] - 2026-02-18
+### Ajouté (Phase 6 - UI Robustness)
+- **Home Page Fix** : Correction d'un crash critique lié au chargement asynchrone des données.
+- **DB Error Handling** : Ajout de blocs try-catch systématiques dans `DatabaseManager`.
+- **Worker IPC Fix** : Résolution d'un bug dans le tunneling des résultats SQL (double accès à `.result`).
+- **Debug Logging** : Ajout de logs détaillés dans la console pour le suivi du cycle de vie de la DB.
+- **OPFS Fallback** : Support automatique du mode `in-memory` en dev si les headers COOP/COEP manquent.
+
 ## [0.3.0] - 2026-02-17
 ### Ajouté (Phase 3 - File System Manager)
 - **Scan de Bibliothèque** : Support de l'ajout de dossiers locaux via `showDirectoryPicker`.

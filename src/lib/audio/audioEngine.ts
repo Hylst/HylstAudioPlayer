@@ -72,24 +72,17 @@ export class AudioEngine {
         if (this.context.state === 'suspended') {
             this.context.resume();
         }
-
         if (!this.source) return;
         if (this.isPlaying) return;
 
-        // If we have a buffer source, strictly speaking we can't "resume" it if it was stopped.
-        // We need to create a new source node if we stopped it? 
-        // Or if we just disconnected it?
-        // standard practice: create new source node on play if it was stopped.
-        // uniqueness of AudioBufferSourceNode: can only be played once.
-        // So if we paused, we noted the time, and we create a new node at that offset.
-
-        // THIS IS A SIMPLIFIED IMPLEMENTATION
-        // Proper implementation needs to handle pause/resume by re-creating source at offset.
-
-        // For now assuming loadTrack -> play sequence.
-        // If resuming:
+        // AudioBufferSourceNode can only be played once.
+        // If resuming from pause, a new source at the saved offset is needed.
         if (this.pauseTime > 0) {
-            this.createSourceFromBuffer((this.source as AudioBufferSourceNode).buffer!, this.pauseTime);
+            const buffer = (this.source as AudioBufferSourceNode).buffer;
+            if (buffer) {
+                this.source.disconnect();
+                this.createSourceFromBuffer(buffer, this.pauseTime);
+            }
         }
 
         this.source.start(0, this.pauseTime);
@@ -97,8 +90,7 @@ export class AudioEngine {
         this.isPlaying = true;
 
         this.source.onended = () => {
-            this.isPlaying = false;
-            // Trigger event?
+            if (this.isPlaying) this.isPlaying = false;
         };
     }
 

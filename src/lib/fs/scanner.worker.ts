@@ -78,10 +78,12 @@ async function scanDirectory(dirHandle: FileSystemDirectoryHandle, parentPath: s
                     const metadata = await parseBlob(file);
                     const track = mapMetadataToTrack(metadata, entryPath);
 
-                    // Add extra file info
-                    // track.file_handle = fileHandle; // Can't transfer handle easily indiscriminately, stick to path?
-                    // Actually handles are transferable but better to re-request or store in IDB if needed.
-                    // For DB, we store the path relative to ROOT.
+                    // EXTRACT ARTWORK
+                    const artworkBlob = extractArtwork(metadata);
+                    if (artworkBlob) {
+                        // @ts-ignore - Temporary property to transport to main thread
+                        track.artwork_blob = artworkBlob;
+                    }
 
                     tracksBatch.push(track);
                     processedCount++;
@@ -91,6 +93,11 @@ async function scanDirectory(dirHandle: FileSystemDirectoryHandle, parentPath: s
                         console.log('[Scanner Worker] Sending batch of', tracksBatch.length, 'tracks');
                         postMessage({ type: 'SCAN_BATCH', payload: { tracks: [...tracksBatch] } });
                         tracksBatch.length = 0;
+                    }
+
+                    // Progress update every 10 files
+                    if (processedCount % 10 === 0) {
+                        postMessage({ type: 'SCAN_PROGRESS', payload: { folder: parentPath, count: processedCount } });
                     }
 
                 } catch (err) {

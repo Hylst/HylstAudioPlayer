@@ -1,10 +1,9 @@
 @import 'tailwindcss';
 
-/*
- * HAP Design System — Custom Theme
- * Based on Stitch mockups: dark background, indigo/purple accents,
- * glassmorphism panels, glow effects, Inter typography.
- */
+:root {
+  --hap-primary: #6366f1;
+  --hap-primary-glow: rgba(99, 102, 241, 0.4);
+}
 
 @theme {
   /* ─── Colors ─── */
@@ -13,7 +12,8 @@
   --color-hap-surface-light: #1e1e2e;
   --color-hap-border: rgba(255, 255, 255, 0.08);
 
-  --color-hap-primary: #6366f1;
+  --color-hap-primary: var(--hap-primary);
+  --color-hap-primary-glow: var(--hap-primary-glow);
   --color-hap-primary-light: #818cf8;
   --color-hap-primary-dark: #4f46e5;
 
@@ -99,6 +99,7 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -110,7 +111,23 @@ body {
 }
 
 /* ─── Material Symbols config ─── */
-.material-symbols-outlined {
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'liga';
+
   font-variation-settings:
     'FILL' 0,
     'wght' 400,
@@ -120,6 +137,7 @@ body {
 
 /* ─── Reduced Motion ─── */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

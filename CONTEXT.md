@@ -3,40 +3,42 @@
 
 ---
 
-## 📍 ÉTAT ACTUEL (Dernière mise à jour : 2026-02-17 22:20)
+## 📍 ÉTAT ACTUEL (Dernière mise à jour : 2026-02-18 20:45)
 
 ### Phase active
-**Phase 3 — File System Manager** (Scan & Lecture: ✅ / Écriture & Orga: ⏳)
-**Prête à suivre : Phase 4 — Audio Engine** ou fin Phase 3
+**Phase 6 — UI Components** (✅ Home Page / ✅ Settings / ✅ Library / ✅ Dynamic Theme / ✅ Playlists)
+**Phase 3 — File System Manager** (✅ Scan / ⏳ Tag Editing / ✅ Artwork Extraction)
 
 ### Ce qui fonctionne
 - **SvelteKit + PWA + Tailwind** (Phase 1)
-- **Base de données SQLite persistante (OPFS)** (Phase 2)
-- **File System Manager** (Phase 3)
-  - **Sélection dossier** : via `showDirectoryPicker` + persistence handle IDB (`idb-keyval`).
-  - **Scan Récursif** : Web Worker (`scanner.worker.ts`) traitant les sous-dossiers.
-  - **Parsing Métadonnées** : `music-metadata` extrait ID3, Vorbis, MP4, covers.
-  - **Batch Database Insert** : Performance optimisée via transactions SQL (50 tracks/batch).
-  - **UI Settings** : Page `/settings` fonctionnelle pour ajouter une bibliothèque.
+- **Base de données SQLite persistante (OPFS)** avec persistence OPFS confirmée (Phase 2)
+- **File System Manager** (Phase 3) : Scan récursif, parsing métadonnées, extraction d'artwork et stockage OPFS.
+- **Dynamic Theme** (Sprint 8) : Extraction de couleur d'artwork et injection de variables CSS.
+- **Playlists** (Sprint 7) : Création, gestion, et ajout de sons aux playlists.
+- **UI Components** (Phase 6) : 
+  - **Home Page** : Glassmorphism, filtres (Tracks, Albums, Artists, Playlists).
+  - **Library** : Redesign complet avec stats, tri et menus contextuels.
+  - **Settings** : Gestion de la bibliothèque, export/import DB.
 
 ### Ce qui est en cours
-- **Écriture des tags** : En investigation (P3-005).
+- **Audio Engine** : Visualiseur de forme d'onde et effets audio.
+- **Écriture des tags** : En investigation pour une alternative à music-metadata.
 
 ### Prochaine action CRITIQUE
-> 🎯 **Action immédiate :** Tester le scan avec de vrais fichiers audio.
-> Si validé, passer à **Phase 4 (Audio Engine)** pour jouer ces fichiers.
+> 🎯 **Action immédiate :** Finaliser le visualiseur audio et tester la persistence SQLite sur différents navigateurs.
 
 ### Architecture FS ↔ DB (Actuelle)
 ```mermaid
 graph TD
-    UI[Settings Page] -->|selectRootFolder| FSStore[fsManager]
-    FSStore -->|Persist Handle| IDB[IndexedDB]
-    FSStore -->|Start Scan| FSWorker[scanner.worker.ts]
-    FSWorker -->|Read & Parse| Files[Local Files]
-    FSWorker -->|Batch Results| FSStore
-    FSStore -->|upsertTracks| DBStore[database.svelte.ts]
+    UI[Home/Library Page] -->|Context Menu| PLStore[playlists.svelte.ts]
+    PLStore -->|CRUD| DBStore[database.svelte.ts]
+    FSWorker[scanner.worker.ts] -->|Extract Artwork| FSStore[fsManager]
+    FSStore -->|Save to OPFS /art/| OPFS_ART[OPFS Storage /art/]
+    FSStore -->|Hash & Save| DBStore
     DBStore -->|Post Message| DBWorker[worker.ts]
     DBWorker -->|Transaction| SQLite[SQLite OPFS]
+    ThemeStore[theme.svelte.ts] -->|Extract Color| Canvas[Canvas API]
+    ThemeStore -->|Update CSS| Root[document.documentElement]
 ```
 
 ---
@@ -59,14 +61,15 @@ graph TD
 
 ---
 
-## 📁 FICHIERS CLÉS CRÉÉS (Phase 3)
+## 📁 FICHIERS CLÉS CRÉÉS (Phase 5/6)
 
 | Fichier | Rôle |
 |---|---|
-| `src/lib/fs/fileSystemManager.svelte.ts` | Store et orchestrateur FS |
-| `src/lib/fs/scanner.worker.ts` | Worker de scan et parsing |
-| `src/lib/fs/tagUtils.ts` | Mapping metadata -> DB Schema |
-| `src/routes/settings/+page.svelte` | UI de gestion de bibliothèque |
+| `src/lib/theme/theme.svelte.ts` | Store de thème dynamique |
+| `src/lib/audio/playlists.svelte.ts` | Store de gestion de playlists |
+| `src/components/player/TrackContextMenu.svelte` | Menu contextuel pour les pistes |
+| `src/components/playlists/PlaylistCreateDialog.svelte` | Dialog de création de playlist |
+| `src/routes/library/+page.svelte` | Redesign de la page Library |
 
 ---
 

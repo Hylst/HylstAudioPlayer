@@ -111,21 +111,37 @@ export class FileSystemManager {
 
         this.worker.onmessage = async (event) => {
             const { type, payload } = event.data;
-            console.log('[FS] Worker message received:', type, payload);
+            // console.log('[FS] Worker message received:', type);
 
             switch (type) {
                 case 'SCAN_BATCH':
+                    // Process tracks and their artwork
+                    const tracks: any[] = payload.tracks;
+                    for (const track of tracks) {
+                        if (track.artwork_blob) {
+                            try {
+                                const hash = await this.saveArtwork(track.artwork_blob);
+                                track.artwork_hash = hash;
+                                delete track.artwork_blob; // Clean up before DB
+                            } catch (err) {
+                                console.error('[FS] Failed to save artwork for', track.file_path, err);
+                                delete track.artwork_blob;
+                            }
+                        }
+                    }
+
                     // Insert tracks into DB (batch upsert)
-                    console.log('[FS] Inserting batch of', payload.tracks.length, 'tracks');
-                    await db.upsertTracks(payload.tracks);
-                    console.log('[FS] Batch inserted successfully');
+                    console.log('[FS] Inserting batch of', tracks.length, 'tracks');
+                    await db.upsertTracks(tracks);
+                    break;
+
+                case 'SCAN_PROGRESS':
+                    console.log(`[FS] Scan Progress: ${payload.count} tracks in ${payload.folder}`);
                     break;
 
                 case 'SCAN_COMPLETE':
                     this.isScanning = false;
                     console.log('[FS] Scan complete');
-                    // Terminate worker to free memory? Or keep for re-scan?
-                    // Keeping it is fine.
                     break;
 
                 case 'SCAN_ERROR':
@@ -139,6 +155,38 @@ export class FileSystemManager {
             console.error('[FS] Worker error:', error);
             this.isScanning = false;
         };
+    }
+
+    /**
+     * Saves an artwork Blob to OPFS /art/ folder with a content-based hash name.
+     * Returns the hash string.
+     */
+    private async saveArtwork(blob: Blob): Promise<string> {
+        // Compute hash
+        const buffer = await blob.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // Try to save to OPFS
+        try {
+            const root = await navigator.storage.getDirectory();
+            const artDir = await root.getDirectoryHandle('art', { create: true });
+
+            // Format: <hash>.jpg (or whatever format it is)
+            const extension = blob.type.split('/')[1] || 'jpg';
+            const fileName = `${hashHex}.${extension}`;
+
+            const fileHandle = await artDir.getFileHandle(fileName, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+
+            return hashHex;
+        } catch (err) {
+            console.error('[FS] Error saving artwork to OPFS:', err);
+            return hashHex; // Return hash anyway even if save fails? Maybe better not.
+        }
     }
 
     /**

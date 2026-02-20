@@ -1,222 +1,392 @@
 <script lang="ts">
   import { db } from "$lib/db/database.svelte";
   import { player } from "$lib/audio/player.svelte";
+  import { playlists } from "$lib/audio/playlists.svelte";
+  import PlaylistCreateDialog from "../components/playlists/PlaylistCreateDialog.svelte";
   import type { Track } from "$lib/types";
 
   let activeFilter = $state("All");
   let items = $state<any[]>([]);
   let loading = $state(false);
+  let showPlaylistCreate = $state(false);
 
-  // Load items when filter changes
+  // Palette of glow colors for cards (cycles through)
+  const glowColors = [
+    "shadow-[0_0_25px_-5px_rgba(168,85,247,0.5)] border-purple-500/30",
+    "shadow-[0_0_25px_-5px_rgba(236,72,153,0.5)] border-pink-500/30",
+    "shadow-[0_0_25px_-5px_rgba(6,182,212,0.5)] border-cyan-500/30",
+    "shadow-[0_0_25px_-5px_rgba(99,102,241,0.5)] border-indigo-500/30",
+    "shadow-[0_0_25px_-5px_rgba(255,255,255,0.2)] border-white/20",
+    "shadow-[0_0_25px_-5px_rgba(249,115,22,0.5)] border-orange-500/30",
+  ];
+
+  // Background gradient colors for artwork placeholders
+  const gradients = [
+    "from-purple-900/60 to-indigo-900/60",
+    "from-pink-900/60 to-rose-900/60",
+    "from-cyan-900/60 to-blue-900/60",
+    "from-indigo-900/60 to-violet-900/60",
+    "from-slate-800/60 to-gray-900/60",
+    "from-orange-900/60 to-red-900/60",
+  ];
+
   $effect(() => {
-    loadItems(activeFilter);
+    const _ = db.lastUpdate;
+    if (db.isReady) loadItems(activeFilter);
   });
 
   async function loadItems(filter: string) {
-    if (!db.isReady) {
-      console.log("[Home] DB not ready yet");
-      return;
-    }
+    if (!db.isReady) return;
     loading = true;
-    console.log("[Home] Loading items for filter:", filter);
     try {
       if (filter === "All") {
         const result = await db.getTracks();
-        console.log("[Home] getTracks returned:", result);
         items = Array.isArray(result) ? result : [];
       } else if (filter === "Albums") {
         const result = await db.getAlbums();
-        console.log("[Home] getAlbums returned:", result);
         items = Array.isArray(result) ? result : [];
       } else if (filter === "Artists") {
         const result = await db.getArtists();
-        console.log("[Home] getArtists returned:", result);
         items = Array.isArray(result) ? result : [];
       } else if (filter === "Playlists") {
-        const result = await db.getPlaylists();
-        console.log("[Home] getPlaylists returned:", result);
-        items = Array.isArray(result) ? result : [];
+        await playlists.refresh();
+        items = playlists.allPlaylists;
       }
-      console.log("[Home] Final items:", items);
     } catch (e) {
       console.error("[Home] Failed to load items:", e);
-      items = []; // Force empty array on error
+      items = [];
     } finally {
       loading = false;
     }
   }
 
-  // Reload when DB is ready
-  $effect(() => {
-    if (db.isReady) {
-      console.log("[Home] DB became ready, loading items");
-      loadItems(activeFilter);
-    }
-  });
+  const filters = ["All", "Albums", "Artists", "Playlists"] as const;
 </script>
 
-<div class="px-5 pt-6 w-full max-w-md mx-auto pb-32">
-  <!-- Header -->
-  <header class="flex items-center justify-between mb-8">
-    <button
+<!-- Ambient Background Gradients (fixed, behind everything) -->
+<div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+  <div
+    class="absolute top-[-10%] left-[-10%] w-[60%] h-[45%] rounded-full bg-indigo-600/20 blur-[120px]"
+  ></div>
+  <div
+    class="absolute bottom-[-10%] right-[-10%] w-[55%] h-[40%] rounded-full bg-purple-600/10 blur-[120px]"
+  ></div>
+</div>
+
+<div class="relative flex flex-col w-full max-w-md mx-auto min-h-full z-10">
+  <!-- ═══════════════════════════════════════════
+       STICKY HEADER — Glass panel with rounded bottom
+  ═══════════════════════════════════════════ -->
+  <header
+    class="sticky top-0 z-30 flex items-center justify-between px-5 pt-12 pb-4
+           bg-gradient-to-b from-[rgba(255,255,255,0.07)] to-[rgba(255,255,255,0.02)]
+           backdrop-blur-[40px] border border-t-0 border-x-0 border-white/8
+           rounded-b-[2rem]"
+  >
+    <a
+      href="/settings"
       class="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-      aria-label="Open menu"
+      aria-label="Settings"
     >
-      <span class="material-symbols-rounded text-[28px]">menu</span>
-    </button>
+      <span class="material-symbols-rounded text-[28px]">settings</span>
+    </a>
 
-    <h1 class="text-xl font-bold tracking-wider text-white">HAP</h1>
+    <h1
+      class="font-bold text-2xl tracking-wide"
+      style="background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.55)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
+    >
+      HAP
+    </h1>
 
-    <button
+    <a
+      href="/search"
       class="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
       aria-label="Search"
     >
       <span class="material-symbols-rounded text-[28px]">search</span>
-    </button>
+    </a>
   </header>
 
-  <!-- Filter Tabs -->
-  <div class="flex gap-3 pb-6 overflow-x-auto no-scrollbar mask-gradient-r">
-    {#each ["All", "Albums", "Artists", "Playlists"] as filter}
-      <button
-        class="px-5 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap {activeFilter ===
-        filter
-          ? 'bg-white text-black shadow-glow-white'
-          : 'glass text-white/70 hover:bg-white/10'}"
-        onclick={() => (activeFilter = filter)}
-      >
-        {filter}
-      </button>
-    {/each}
-  </div>
-
-  <!-- Content -->
-  {#if loading}
-    <div class="flex justify-center py-20">
-      <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"
-      ></div>
-    </div>
-  {:else if items.length === 0}
-    <!-- Empty State -->
-    <div class="flex flex-col items-center justify-center py-16 gap-6">
-      <div
-        class="w-24 h-24 rounded-3xl bg-surface-800 flex items-center justify-center shadow-lg border border-white/5"
-      >
-        <span class="material-symbols-rounded text-5xl text-primary-400"
-          >library_music</span
-        >
-      </div>
-      <div class="text-center">
-        <p class="text-lg font-semibold text-white mb-2">
-          No {activeFilter} found
-        </p>
-        <p class="text-sm text-white/50 max-w-xs">
-          Add a music folder to start building your library.
-        </p>
-      </div>
-      <a
-        href="/settings"
-        class="px-8 py-3 bg-primary-500 hover:bg-primary-400 rounded-full text-white font-semibold text-sm transition-colors flex items-center gap-2 shadow-lg"
-      >
-        <span class="material-symbols-rounded text-xl">create_new_folder</span>
-        Add Folder
-      </a>
-    </div>
-  {:else if activeFilter === "All"}
-    <h2 class="text-xl font-bold mb-4">Recently Added</h2>
-    <div class="space-y-2">
-      {#each items.slice(0, 20) as track}
+  <!-- ═══════════════════════════════════════════
+       SCROLLABLE CONTENT
+  ═══════════════════════════════════════════ -->
+  <main class="flex-1 overflow-y-auto no-scrollbar px-5 pt-6 pb-4">
+    <!-- ─── Filter Tabs ─── -->
+    <div
+      class="flex gap-3 pb-6 overflow-x-auto no-scrollbar"
+      style="mask-image: linear-gradient(to right, black 85%, transparent 100%)"
+    >
+      {#each filters as filter}
         <button
-          class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors text-left group"
-          onclick={() => player.play(track)}
+          class="px-5 py-2.5 rounded-full font-medium text-sm whitespace-nowrap transition-all flex-shrink-0
+            {activeFilter === filter
+            ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.35)]'
+            : 'text-white/70 border border-white/10 hover:bg-white/10'}"
+          style={activeFilter === filter
+            ? ""
+            : "backdrop-filter: blur(10px); background: rgba(255,255,255,0.04)"}
+          onclick={() => (activeFilter = filter)}
         >
-          <div
-            class="w-12 h-12 rounded bg-surface-800 flex items-center justify-center text-white/20 group-hover:text-white/40"
-          >
-            <span class="material-symbols-rounded">music_note</span>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="font-medium text-white truncate">{track.title}</div>
-            <div class="text-xs text-white/50 truncate">{track.artist}</div>
-          </div>
-          <div
-            class="w-8 h-8 rounded-full flex items-center justify-center text-primary-400 opacity-0 group-hover:opacity-100 bg-white/10"
-          >
-            <span class="material-symbols-rounded">play_arrow</span>
-          </div>
+          {filter}
         </button>
       {/each}
     </div>
-  {:else if activeFilter === "Albums"}
-    <div class="grid grid-cols-2 gap-4">
-      {#each items as album}
+
+    {#if loading}
+      <!-- Loading -->
+      <div class="flex flex-col items-center justify-center py-24 gap-4">
         <div
-          class="group flex flex-col gap-2 p-2 rounded-2xl hover:bg-white/5 transition-colors"
+          class="w-10 h-10 rounded-full border-2 border-white/10 border-t-indigo-400 animate-spin"
+        ></div>
+        <p class="text-xs text-white/30 tracking-widest uppercase">Loading…</p>
+      </div>
+    {:else if items.length === 0}
+      <!-- Empty State -->
+      <div class="flex flex-col items-center justify-center py-20 gap-6">
+        <div
+          class="w-28 h-28 rounded-[2rem] flex items-center justify-center"
+          style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 0 40px -10px rgba(99,102,241,0.3)"
         >
-          <div
-            class="aspect-square rounded-xl bg-surface-800 relative overflow-hidden shadow-lg border border-white/5"
+          <span class="material-symbols-rounded text-5xl text-indigo-400"
+            >library_music</span
           >
+        </div>
+        <div class="text-center">
+          <p class="text-lg font-semibold text-white mb-2">Library is empty</p>
+          <p class="text-sm text-white/40 max-w-[220px] leading-relaxed">
+            Add a folder in Settings to discover your music.
+          </p>
+        </div>
+        <a
+          href="/settings"
+          class="px-6 py-2.5 rounded-full font-semibold text-sm text-white flex items-center gap-2 transition-all"
+          style="background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 0 24px rgba(99,102,241,0.4)"
+        >
+          <span class="material-symbols-rounded text-[20px]"
+            >create_new_folder</span
+          >
+          Add Folder
+        </a>
+      </div>
+    {:else if activeFilter === "All"}
+      <!-- ─── Track Grid (Stitch style: 2-col card grid) ─── -->
+      <h2 class="font-semibold text-xl text-white/90 mb-4">Recently Added</h2>
+      <div class="grid grid-cols-2 gap-4 pb-4">
+        {#each items.slice(0, 50) as track, i}
+          {@const isPlaying =
+            player.currentTrack?.id === track.id && player.isPlaying}
+          {@const isCurrent = player.currentTrack?.id === track.id}
+          <div class="group flex flex-col gap-3">
+            <!-- Artwork Card -->
             <div
-              class="w-full h-full flex items-center justify-center text-white/20"
+              class="relative aspect-square rounded-[1.5rem] overflow-hidden border cursor-pointer {glowColors[
+                i % glowColors.length
+              ]}"
+              style="background: linear-gradient(135deg, rgba(20,20,35,0.9), rgba(10,10,20,1))"
+              onclick={() => player.playFromList(items, i)}
+              role="button"
+              tabindex="0"
+              aria-label="Play {track.title ?? 'track'}"
+              onkeydown={(e) =>
+                e.key === "Enter" && player.playFromList(items, i)}
             >
-              <span class="material-symbols-rounded text-4xl">album</span>
+              <!-- Placeholder gradient art -->
+              <div
+                class="absolute inset-0 bg-gradient-to-br {gradients[
+                  i % gradients.length
+                ]} opacity-70"
+              ></div>
+
+              <!-- Music note placeholder -->
+              <div class="absolute inset-0 flex items-center justify-center">
+                {#if isCurrent && player.isPlaying}
+                  <!-- Animated bars when playing -->
+                  <div class="flex items-end gap-[3px] h-8">
+                    {#each [0.6, 1, 0.4, 0.8, 0.3, 0.9, 0.5] as h, j}
+                      <div
+                        class="w-1 rounded-full bg-indigo-400"
+                        style="height: {h * 28}px; animation: bounce {0.8 +
+                          j *
+                            0.15}s ease-in-out infinite alternate; box-shadow: 0 0 8px rgba(99,102,241,0.8)"
+                      ></div>
+                    {/each}
+                  </div>
+                {:else}
+                  <span
+                    class="material-symbols-rounded text-4xl text-white/10 group-hover:text-white/20 transition-colors"
+                  >
+                    {isCurrent ? "pause_circle" : "music_note"}
+                  </span>
+                {/if}
+              </div>
+
+              <!-- Gradient overlay -->
+              <div
+                class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"
+              ></div>
+
+              <!-- Hover Play button -->
+              {#if !isCurrent}
+                <button
+                  class="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center text-white
+                         opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+                  style="background: rgba(255,255,255,0.2); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15)"
+                  aria-label="Play"
+                >
+                  <span class="material-symbols-rounded text-[22px] ml-0.5"
+                    >play_arrow</span
+                  >
+                </button>
+              {/if}
             </div>
-            <!-- Play overlay -->
-            <div
-              class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-            >
-              <button
-                class="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-xl transform scale-90 group-hover:scale-100 transition-all"
+
+            <!-- Track info -->
+            <div class="px-1">
+              <h3
+                class="text-white font-medium text-sm truncate leading-snug
+                {isCurrent ? 'text-indigo-300' : ''}"
               >
-                <span class="material-symbols-rounded text-3xl">play_arrow</span
+                {track.title ?? track.file_name ?? "Unknown"}
+              </h3>
+              <p class="text-white/50 text-xs truncate mt-0.5">
+                {track.artist ?? "Unknown Artist"}
+              </p>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else if activeFilter === "Albums"}
+      <h2 class="font-semibold text-xl text-white/90 mb-4">Albums</h2>
+      <div class="grid grid-cols-2 gap-4">
+        {#each items as album, i}
+          <div class="group flex flex-col gap-3">
+            <div
+              class="relative aspect-square rounded-[1.5rem] overflow-hidden border cursor-pointer {glowColors[
+                i % glowColors.length
+              ]}"
+              style="background: linear-gradient(135deg, rgba(20,20,35,0.9), rgba(10,10,20,1))"
+            >
+              <div
+                class="absolute inset-0 bg-gradient-to-br {gradients[
+                  i % gradients.length
+                ]} opacity-70"
+              ></div>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span class="material-symbols-rounded text-5xl text-white/10"
+                  >album</span
+                >
+              </div>
+              <div
+                class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
+              ></div>
+              <button
+                class="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+                style="background: rgba(255,255,255,0.2); backdrop-filter: blur(12px)"
+              >
+                <span class="material-symbols-rounded text-[22px] ml-0.5"
+                  >play_arrow</span
                 >
               </button>
             </div>
-          </div>
-          <div>
-            <div class="font-bold text-white truncate">{album.album}</div>
-            <div class="text-xs text-white/50 truncate">
-              {album.artist || album.album_artist || "Unknown"}
+            <div class="px-1">
+              <h3 class="text-white font-medium text-sm truncate">
+                {album.album ?? "Unknown Album"}
+              </h3>
+              <p class="text-white/50 text-xs truncate">
+                {album.artist || album.album_artist || "Unknown"}
+              </p>
             </div>
           </div>
-        </div>
-      {/each}
-    </div>
-  {:else if activeFilter === "Artists"}
-    <div class="grid grid-cols-2 gap-4">
-      {#each items as artist}
-        <div
-          class="group flex flex-col items-center gap-3 p-4 rounded-2xl bg-surface-800/50 border border-white/5 hover:bg-surface-800 transition-colors"
-        >
+        {/each}
+      </div>
+    {:else if activeFilter === "Artists"}
+      <h2 class="font-semibold text-xl text-white/90 mb-4">Artists</h2>
+      <div class="grid grid-cols-2 gap-3">
+        {#each items as artist}
           <div
-            class="w-24 h-24 rounded-full bg-surface-700 flex items-center justify-center text-white/20 shadow-lg"
+            class="flex flex-col items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors"
+            style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07)"
           >
-            <span class="material-symbols-rounded text-4xl">person</span>
-          </div>
-          <div class="text-center">
-            <div class="font-bold text-white truncate max-w-[140px]">
-              {artist.artist}
+            <div
+              class="w-20 h-20 rounded-full flex items-center justify-center"
+              style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1)"
+            >
+              <span class="material-symbols-rounded text-4xl text-white/25"
+                >person</span
+              >
             </div>
-            <div class="text-xs text-white/50">{artist.track_count} tracks</div>
+            <div class="text-center">
+              <div
+                class="font-semibold text-white text-sm truncate max-w-[130px]"
+              >
+                {artist.artist}
+              </div>
+              <div class="text-xs text-white/40">
+                {artist.track_count}
+                {artist.track_count === 1 ? "track" : "tracks"}
+              </div>
+            </div>
           </div>
-        </div>
-      {/each}
-    </div>
-  {:else if activeFilter === "Playlists"}
-    <div class="space-y-2">
-      {#each items as pl}
-        <div class="p-4 rounded-xl bg-surface-800/50 border border-white/5">
-          <div class="font-bold">{pl.name}</div>
-          <div class="text-xs text-white/50">{pl.track_count || 0} tracks</div>
-        </div>
-      {/each}
-      <button
-        class="w-full p-4 rounded-xl border border-dashed border-white/20 flex items-center justify-center gap-2 text-white/50 hover:text-white hover:border-white/40 transition-colors"
-      >
-        <span class="material-symbols-rounded">add</span>
-        Create Playlist
-      </button>
-    </div>
-  {/if}
+        {/each}
+      </div>
+    {:else if activeFilter === "Playlists"}
+      <h2 class="font-semibold text-xl text-white/90 mb-4">Playlists</h2>
+      <div class="space-y-2">
+        {#each items as pl}
+          <a
+            href="/playlists/{pl.id}"
+            class="p-4 rounded-2xl flex items-center gap-4 hover:bg-white/5 transition-all group"
+            style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07)"
+          >
+            <div
+              class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors group-hover:bg-hap-primary/30"
+              style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.25)"
+            >
+              <span class="material-symbols-rounded text-hap-primary"
+                >queue_music</span
+              >
+            </div>
+            <div class="min-w-0 flex-1">
+              <div
+                class="font-semibold text-white group-hover:text-hap-primary transition-colors"
+              >
+                {pl.name}
+              </div>
+              <div class="text-xs text-white/40">
+                {pl.track_count || 0} tracks
+              </div>
+            </div>
+            <span
+              class="material-symbols-rounded text-white/20 text-[20px] group-hover:text-white/40 transition-colors"
+              >chevron_right</span
+            >
+          </a>
+        {/each}
+        <button
+          class="w-full p-4 mt-2 rounded-2xl flex items-center justify-center gap-2 text-white/40 hover:text-white transition-colors"
+          style="border: 1px dashed rgba(255,255,255,0.15)"
+          onclick={() => (showPlaylistCreate = true)}
+        >
+          <span class="material-symbols-rounded">add</span>
+          New Playlist
+        </button>
+      </div>
+    {/if}
+  </main>
 </div>
+
+<PlaylistCreateDialog
+  bind:show={showPlaylistCreate}
+  onCreated={() => loadItems("Playlists")}
+/>
+
+<style>
+  @keyframes bounce {
+    from {
+      transform: scaleY(0.3);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+</style>

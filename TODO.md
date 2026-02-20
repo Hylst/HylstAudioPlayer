@@ -55,14 +55,16 @@
 - [ ] **[P5-008]** UI de progression d'identification en masse
 
 ### PHASE 6 — UI Components
-- [ ] **[P6-001]** Intégration composants Stitch dans l'architecture
-- [ ] **[P6-002]** Connexion UI ↔ store audio
-- [ ] **[P6-003]** Connexion UI ↔ store DB
-- [ ] **[P6-004]** Connexion UI ↔ module FS
-- [ ] **[P6-005]** Routes SvelteKit (library, playlists, settings)
-- [ ] **[P6-006]** Gestion du thème dynamique (couleur artwork)
-- [ ] **[P6-007]** Keyboard shortcuts
-- [ ] **[P6-008]** Accessibilité WCAG 2.1 AA
+- [x] **[P6-001]** Home Page Redesign (Stitch style)
+- [x] **[P6-002]** Library Page Redesign (Stitch style)
+- [x] **[P6-003]** Fullscreen Player View
+- [x] **[P6-004]** Thème dynamique (Artwork color extraction)
+- [x] **[P6-005]** Playlist Management UI
+- [ ] **[P6-006]** Visualiseur de spectre audio (Canvas)
+- [ ] **[P6-007]** Animations de transitions de pages
+- [ ] **[P6-008]** Menu contextuel global
+- [ ] **[P6-009]** Keyboard shortcuts
+- [ ] **[P6-010]** Accessibilité WCAG 2.1 AA
 
 ### PHASE 7 — Tests & Optimisation
 - [ ] **[P7-001]** Tests Vitest (modules FS, Audio)

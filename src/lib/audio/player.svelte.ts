@@ -5,6 +5,7 @@ import type { Track, EQBand } from '$lib/types';
 import { AudioEngine } from './audioEngine';
 import { fsManager } from '$lib/fs/fileSystemManager.svelte';
 import { Visualizer } from './visualizer';
+import { updateMediaSession, clearMediaSession } from './mediaSession';
 
 const DEFAULT_EQ_BANDS: EQBand[] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000].map(f => ({
     frequency: f,
@@ -23,6 +24,7 @@ class PlayerStore {
     queueIndex = $state(0);
     repeatMode = $state<'off' | 'one' | 'all'>('off');
     shuffleEnabled = $state(false);
+    currentTrackArtworkUrl = $state<string | null>(null);
 
     // Internal
     private engine: AudioEngine;
@@ -55,32 +57,78 @@ class PlayerStore {
             this.togglePlay();
             return;
         }
+        // If no queue set yet, create a single-track queue
+        if (this.queue.length === 0) {
+            this.queue = [track];
+            this.queueIndex = 0;
+        } else {
+            // Find in current queue
+            const idx = this.queue.findIndex(t => t.id === track.id);
+            if (idx >= 0) {
+                this.queueIndex = idx;
+            } else {
+                // Not in queue, reset
+                this.queue = [track];
+                this.queueIndex = 0;
+            }
+        }
+        await this._loadAndPlay(track);
+    }
 
+    /** Play a track from a given list (sets the queue) */
+    async playFromList(tracks: Track[], index: number) {
+        this.queue = [...tracks];
+        this.queueIndex = Math.max(0, Math.min(index, tracks.length - 1));
+        this.currentTrack = tracks[this.queueIndex];
+        await this._loadAndPlay(this.currentTrack);
+    }
+
+    private async _loadAndPlay(track: Track) {
         this.currentTrack = track;
         try {
-            // Get file handle
-            // Helper needed to resolve path -> handle
-            // For now assuming path match in FS Manager or direct retrieval if we stored handle in DB?
-            // DB does NOT store handles. We need to ask FS Manager.
-            // But FS Manager stores Root Handle.
-            // We need to traverse or simpler: we only support playing if we can get file.
-            // fsManager.getFileHandle(path) logic needed.
-
             const fileHandle = await fsManager.getFileHandle(track.file_path);
-            if (!fileHandle) throw new Error('File not found');
-
+            if (!fileHandle) throw new Error('File not found: ' + track.file_path);
             const file = await fileHandle.getFile();
             const buffer = await file.arrayBuffer();
-
             await this.engine.loadTrack(buffer);
             this.engine.play();
             this.isPlaying = true;
             this.duration = this.engine.getDuration();
 
-            this.startTimer();
+            // UPDATE ARTWORK URL — revoke previous to avoid memory leak
+            if (this.currentTrackArtworkUrl) {
+                URL.revokeObjectURL(this.currentTrackArtworkUrl);
+                this.currentTrackArtworkUrl = null;
+            }
+            if (this.currentTrack.artwork_hash) {
+                this.currentTrackArtworkUrl = await this.getArtworkUrl(this.currentTrack.artwork_hash);
+            }
 
+            this.startTimer();
         } catch (err) {
-            console.error('Failed to play track', err);
+            console.error('[Player] Failed to play track:', err);
+            this.isPlaying = false;
+        }
+    }
+
+    private async getArtworkUrl(hash: string): Promise<string | null> {
+        try {
+            const root = await navigator.storage.getDirectory();
+            const artDir = await root.getDirectoryHandle('art');
+
+            // We don't know the extension exactly, but we can try common ones or list directory
+            // For now, let's assume we saved it as .jpg or .png
+            // A more robust way is to iterate the directory
+            // @ts-ignore
+            for await (const entry of artDir.values()) {
+                if (entry.name.startsWith(hash)) {
+                    const file = await entry.getFile();
+                    return URL.createObjectURL(file);
+                }
+            }
+            return null;
+        } catch (err) {
+            return null;
         }
     }
 
@@ -111,15 +159,20 @@ class PlayerStore {
     }
 
     next() {
-        // Logic for queue
         if (this.queue.length === 0) return;
+        if (this.shuffleEnabled) {
+            const nextIndex = Math.floor(Math.random() * this.queue.length);
+            this.queueIndex = nextIndex;
+            this._loadAndPlay(this.queue[nextIndex]);
+            return;
+        }
         let nextIndex = this.queueIndex + 1;
         if (nextIndex >= this.queue.length) {
             if (this.repeatMode === 'all') nextIndex = 0;
             else return; // End of queue
         }
         this.queueIndex = nextIndex;
-        this.play(this.queue[nextIndex]);
+        this._loadAndPlay(this.queue[nextIndex]);
     }
 
     previous() {
@@ -127,29 +180,43 @@ class PlayerStore {
             this.seek(0);
             return;
         }
+        if (this.queue.length === 0) return;
         let prevIndex = this.queueIndex - 1;
         if (prevIndex < 0) {
             if (this.repeatMode === 'all') prevIndex = this.queue.length - 1;
             else prevIndex = 0;
         }
         this.queueIndex = prevIndex;
-        this.play(this.queue[prevIndex]);
+        this._loadAndPlay(this.queue[prevIndex]);
     }
 
     addToQueue(track: Track) {
         this.queue.push(track);
     }
 
-    // Timer for UI updates
     private startTimer() {
         this.stopTimer();
         this.timeInterval = setInterval(() => {
             this.currentTime = this.engine.getCurrentTime();
+            // Update OS media session position
+            if (this.currentTrack) {
+                updateMediaSession(
+                    this.currentTrack,
+                    this.isPlaying,
+                    this.currentTime,
+                    this.duration,
+                    () => this.togglePlay(),
+                    () => this.togglePlay(),
+                    () => this.next(),
+                    () => this.previous(),
+                    (t) => this.seek(t),
+                );
+            }
             // Check end
             if (this.currentTime >= this.duration && this.duration > 0) {
                 this.handleTrackEnd();
             }
-        }, 100);
+        }, 500); // 500ms is sufficient for MediaSession position updates
     }
 
     private stopTimer() {

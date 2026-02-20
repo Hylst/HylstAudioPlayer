@@ -73,6 +73,8 @@ self.onmessage = async (event: any) => {
                         result.push(row);
                     }
                 });
+                log(`EXEC_SQL Success: ${payload.sql.substring(0, 50)}... Returns ${result.length} rows`);
+                if (result.length > 0) log('First row sample:', JSON.stringify(result[0]));
                 self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
             } catch (err: any) {
                 self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
@@ -129,14 +131,15 @@ self.onmessage = async (event: any) => {
                         INSERT OR REPLACE INTO tracks (
                             file_path, title, artist, album, album_artist, genre, year, 
                             track_number, disc_number, duration, bitrate, sample_rate, 
-                            play_count, rating, bpm, musicbrainz_id, date_added
+                            play_count, rating, bpm, artwork_hash, musicbrainz_id, date_added
                         ) VALUES (
                             $file_path, $title, $artist, $album, $album_artist, $genre, $year,
                             $track_number, $disc_number, $duration, $bitrate, $sample_rate,
-                            $play_count, $rating, $bpm, $musicbrainz_id, $date_added
+                            $play_count, $rating, $bpm, $artwork_hash, $musicbrainz_id, $date_added
                         )
                     `);
                     try {
+                        log(`Starting transaction for ${tracks.length} tracks`);
                         for (const track of tracks) {
                             stmt.bind({
                                 $file_path: track.file_path,
@@ -154,17 +157,28 @@ self.onmessage = async (event: any) => {
                                 $play_count: track.play_count || 0,
                                 $rating: track.rating || 0,
                                 $bpm: track.bpm,
+                                $artwork_hash: track.artwork_hash,
                                 $musicbrainz_id: track.musicbrainz_id,
                                 $date_added: track.date_added ? new Date(track.date_added).getTime() : Date.now()
                             });
                             stmt.step();
                             stmt.reset();
                         }
+                        log(`Finished inner loop for ${tracks.length} tracks`);
                     } finally {
                         stmt.finalize();
                     }
                 });
-                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: tracks.length } });
+                log(`UPSERT_TRACKS transaction committed for ${tracks.length} tracks`);
+
+                // Verify immediate count
+                const countResult: any[] = [];
+                localDb.exec({
+                    sql: 'SELECT COUNT(*) as count FROM tracks',
+                    rowMode: 'object',
+                    callback: (row: any) => { countResult.push(row); }
+                });
+                log(`Verification: tracks table now has ${countResult[0]?.count} rows`);
             } catch (err: any) {
                 self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }
@@ -222,7 +236,104 @@ self.onmessage = async (event: any) => {
             try {
                 const result: any[] = [];
                 db.exec({
-                    sql: `SELECT * FROM playlists ORDER BY name`,
+                    sql: `SELECT p.*, COUNT(pt.track_id) as track_count 
+                          FROM playlists p 
+                          LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id 
+                          GROUP BY p.id 
+                          ORDER BY p.name`,
+                    rowMode: 'object',
+                    callback: (row: any) => { result.push(row); }
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'CREATE_PLAYLIST':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const { name, description } = payload;
+                db.exec({
+                    sql: 'INSERT INTO playlists (name, description, date_created) VALUES (?, ?, ?)',
+                    bind: [name, description || '', Date.now()]
+                });
+                const lastId = db.selectValue('SELECT last_insert_rowid()');
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: lastId } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'DELETE_PLAYLIST':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                db.exec({
+                    sql: 'DELETE FROM playlists WHERE id = ?',
+                    bind: [payload.id]
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'ADD_TRACK_TO_PLAYLIST':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const { playlistId, trackId } = payload;
+                // Get current max position
+                const maxPos = db.selectValue('SELECT COALESCE(MAX(position), 0) FROM playlist_tracks WHERE playlist_id = ?', [playlistId]) as number;
+                db.exec({
+                    sql: 'INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)',
+                    bind: [playlistId, trackId, maxPos + 1]
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'REMOVE_TRACK_FROM_PLAYLIST':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const { playlistId, trackId } = payload;
+                db.exec({
+                    sql: 'DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?',
+                    bind: [playlistId, trackId]
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'GET_PLAYLIST_TRACKS':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const { playlistId } = payload;
+                const result: any[] = [];
+                db.exec({
+                    sql: `SELECT t.* FROM tracks t 
+                          JOIN playlist_tracks pt ON t.id = pt.track_id 
+                          WHERE pt.playlist_id = ? 
+                          ORDER BY pt.position`,
+                    bind: [playlistId],
                     rowMode: 'object',
                     callback: (row: any) => { result.push(row); }
                 });
