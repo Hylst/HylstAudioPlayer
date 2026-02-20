@@ -3,29 +3,33 @@
 
 ---
 
-## 📍 ÉTAT ACTUEL (Dernière mise à jour : 2026-02-18 20:45)
+## 📍 ÉTAT ACTUEL (Dernière mise à jour : 2026-02-20)
 
 ### Phase active
-**Phase 6 — UI Components** (✅ Home Page / ✅ Settings / ✅ Library / ✅ Dynamic Theme / ✅ Playlists)
-**Phase 3 — File System Manager** (✅ Scan / ⏳ Tag Editing / ✅ Artwork Extraction)
+**Phase 6 — UI Components** (✅ Home / ✅ Library / ✅ Player / ✅ Search / ✅ Profile / ✅ Playlist Detail / ✅ Settings/EQ)
+**Phase 4 — Audio Engine** (⏳ EQ wiring / ⏳ Visualizer)
 
 ### Ce qui fonctionne
 - **SvelteKit + PWA + Tailwind** (Phase 1)
-- **Base de données SQLite persistante (OPFS)** avec persistence OPFS confirmée (Phase 2)
-- **File System Manager** (Phase 3) : Scan récursif, parsing métadonnées, extraction d'artwork et stockage OPFS.
-- **Dynamic Theme** (Sprint 8) : Extraction de couleur d'artwork et injection de variables CSS.
-- **Playlists** (Sprint 7) : Création, gestion, et ajout de sons aux playlists.
-- **UI Components** (Phase 6) : 
-  - **Home Page** : Glassmorphism, filtres (Tracks, Albums, Artists, Playlists).
-  - **Library** : Redesign complet avec stats, tri et menus contextuels.
-  - **Settings** : Gestion de la bibliothèque, export/import DB.
+- **Base de données SQLite persistante (OPFS)** (Phase 2)
+- **File System Manager** (Phase 3) : Scan récursif, parsing métadonnées, artwork en OPFS.
+- **Dynamic Theme** : Extraction de couleur d'artwork → variables CSS.
+- **Playlists** : Création, gestion, ajout de tracks.
+- **UI Components — Stitch Redesign complet** (Phase 6) :
+  - **Home Page** : Glassmorphism, mini-player capsule, filter chips.
+  - **Library** : Stats, tri, menus contextuels.
+  - **Fullscreen Player** (`/player`) : Blur artwork bg, waveform-bar seeker, glass prev/next buttons, neon Play button, visualizer rings.
+  - **Search** (`/search`) : Sticky glass input, history chips, Explore Vibes mood grid (6 tiles).
+  - **Profile** (`/profile`) : Avatar avec aura radiale, stats bar 3 cols, artist scroller horizontal, activity timeline.
+  - **Playlist Detail** (`/playlists/[id]`) : Hero artwork glow centré, Play All + Shuffle, glass-card track list.
+  - **Settings/EQ** (`/settings`) : 10-band EQ UI avec presets, 3 toggles audio (Bass/3D/Vocal), pre-amp slider, library management.
 
 ### Ce qui est en cours
-- **Audio Engine** : Visualiseur de forme d'onde et effets audio.
-- **Écriture des tags** : En investigation pour une alternative à music-metadata.
+- **EQ** : Interface créée, câblage vers Web Audio API non fait.
+- **Visualiseur** : Waveform bars static dans le Player, FFT Canvas à implémenter.
 
 ### Prochaine action CRITIQUE
-> 🎯 **Action immédiate :** Finaliser le visualiseur audio et tester la persistence SQLite sur différents navigateurs.
+> 🎯 **Action immédiate :** Câbler l'EQ UI (`/settings`) vers `audioEngine.ts` via `equalizer.ts`, puis visualiseur FFT Canvas.
 
 ### Architecture FS ↔ DB (Actuelle)
 ```mermaid

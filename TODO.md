@@ -8,8 +8,8 @@
 ## 🎯 CURRENT SPRINT
 > Sprint actuel, objectif et date de fin estimée.
 
-**Sprint :** Phase 3 — File System Manager (Part 2)
-**Objectif :** Parsing tags écriture, Réorganisation, Watchdog
+**Sprint :** Phase 6 — Stitch UI Redesign (Part 2) + Phase 4 EQ Wiring
+**Objectif :** Connecter l'EQ aux Web Audio API, visualiseur de spectre, animer les transitions
 **Deadline estimée :** À définir
 
 ---
@@ -17,10 +17,13 @@
 ## 🔄 IN PROGRESS
 > Tâches en cours. Maximum 3 simultanées.
 
-- [ ] **[P3-005]** `src/lib/fs/tagEditor.ts` — écriture tags + artwork APIC
+- [ ] **[P4-004]** `src/lib/audio/equalizer.ts` — Câbler l'EQ 10 bandes UI → Web Audio Graph
   - Assigné à : IA
   - Démarré le : —
-  - Blockers : Recherche librairie écriture (music-metadata est read-only)
+  - Note : UI EQ créée dans `/settings`, besoin de connecter à audioEngine.ts
+- [ ] **[P4-005]** `src/lib/audio/visualizer.ts` — FFT Canvas visualiseur de spectre
+  - Assigné à : IA
+  - Démarré le : —
 
 ---
 
@@ -57,14 +60,16 @@
 ### PHASE 6 — UI Components
 - [x] **[P6-001]** Home Page Redesign (Stitch style)
 - [x] **[P6-002]** Library Page Redesign (Stitch style)
-- [x] **[P6-003]** Fullscreen Player View
+- [x] **[P6-003]** Fullscreen Player View — Stitch redesign (waveform seeker, blur bg, neon play) `[2026-02-20]`
 - [x] **[P6-004]** Thème dynamique (Artwork color extraction)
 - [x] **[P6-005]** Playlist Management UI
-- [ ] **[P6-006]** Visualiseur de spectre audio (Canvas)
-- [ ] **[P6-007]** Animations de transitions de pages
-- [ ] **[P6-008]** Menu contextuel global
-- [ ] **[P6-009]** Keyboard shortcuts
-- [ ] **[P6-010]** Accessibilité WCAG 2.1 AA
+- [x] **[P6-006]** Search Page — Stitch redesign (glass input, mood grid, history chips) `[2026-02-20]`
+- [x] **[P6-007]** Profile Page — Stitch redesign (avatar aura, stats bar, activity timeline) `[2026-02-20]`
+- [x] **[P6-008]** Playlist Detail — Stitch redesign (hero glow, glass track list, Play All + Shuffle) `[2026-02-20]`
+- [x] **[P6-009]** Settings/EQ Page — Stitch redesign (10-band EQ presets, toggle switches) `[2026-02-20]`
+- [ ] **[P6-010]** Visualiseur de spectre audio (Canvas) — wiring après EQ
+- [ ] **[P6-011]** Animations de transitions de pages
+- [ ] **[P6-012]** Accessibilité WCAG 2.1 AA (audit complet)
 
 ### PHASE 7 — Tests & Optimisation
 - [ ] **[P7-001]** Tests Vitest (modules FS, Audio)
@@ -131,4 +136,5 @@
 > Notes temporaires de l'IA.
 
 - **Phase 3 (Scan)** : Le système de scan fonctionne. `ScannerWorker` lit les fichiers, parse les tags, et envoie des batchs à `fileSystemManager`, qui les envoie à `DatabaseManager` pour batch insert transactionnel.
-- **UI Settings** : Page de settings basique créée pour tester le scan (`/settings`).
+- **UI Settings EQ** : Page Settings redessinée avec EQ 10 bandes, presets, toggles Bass/3D/Vocal. L'EQ est UI-only pour l'instant (pas connecté au Web Audio Graph).
+- **Stitch Redesign** : 5 écrans redessinés en un seul sprint : `/player`, `/search`, `/profile`, `/playlists/[id]`, `/settings`.
