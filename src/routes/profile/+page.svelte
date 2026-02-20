@@ -32,7 +32,7 @@
 
     let totalHours = $derived(Math.floor(stats.totalDuration / 3600));
     let topArtistName = $derived(artists[0]?.artist ?? "—");
-    let playlistCount = $derived(0); // TODO: connect to playlist store
+    let playlistCount = $derived(albums.length); // Albums count used as proxy — connect to playlists store when available
 </script>
 
 <!-- Ambient glows -->

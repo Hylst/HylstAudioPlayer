@@ -5,7 +5,7 @@
     import { formatTime } from "$lib/utils/format";
     import type { Track } from "$lib/types";
 
-    let playlistId = $derived(parseInt($page.params.id));
+    let playlistId = $derived(parseInt($page.params.id ?? "0"));
     let playlist = $state<{
         id: number;
         name: string;
@@ -207,12 +207,16 @@
             {:else}
                 {#each tracks as track, i}
                     {@const isCurrent = player.currentTrack?.id === track.id}
-                    <button
+                    <div
+                        role="button"
+                        tabindex="0"
                         class="group relative w-full flex items-center gap-4 p-3 rounded-xl transition-all cursor-pointer text-left"
                         style={isCurrent
                             ? `background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); box-shadow: 0 0 15px -5px var(--hap-primary-glow, rgba(99,102,241,0.3))`
                             : `background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(12px)`}
                         onclick={() => player.playFromList(tracks, i)}
+                        onkeydown={(e) =>
+                            e.key === "Enter" && player.playFromList(tracks, i)}
                         aria-label="Play {track.title}"
                     >
                         <!-- Artwork/index -->
@@ -287,7 +291,7 @@
                                 >more_vert</span
                             >
                         </button>
-                    </button>
+                    </div>
                 {/each}
             {/if}
         </div>

@@ -1,76 +1,132 @@
 <script lang="ts">
-    import { onMount } from "svelte";
     import { player } from "$lib/audio/player.svelte";
 
-    let canvas: HTMLCanvasElement;
-    let ctx: CanvasRenderingContext2D | null;
-    let animationId: number;
+    let canvas: HTMLCanvasElement | null = $state(null);
+    let ctx: CanvasRenderingContext2D | null = null;
+    let animationId = 0;
 
-    const BAR_COUNT = 32;
-    const BAR_WIDTH = 4;
-    const BAR_GAP = 2;
+    // ─── Configuration ───
+    const BAR_COUNT = 48; // Number of frequency bars
+    const BAR_GAP = 2; // px gap between bars
+    const MIN_DB = -80; // AnalyserNode minDecibels
+    const SMOOTHING = 0.8; // Temporal smoothing
+    const MIRROR = true; // Mirror bars from center
 
-    function draw() {
-        if (!ctx || !player.visualizer) return;
+    // ─── Smoothed values for animation ───
+    let smoothBars = new Float32Array(BAR_COUNT).fill(0);
 
-        // Check if we should draw
-        if (!player.isPlaying) {
-            // Clear canvas or draw idle state
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // animationId = requestAnimationFrame(draw);
-            // Don't loop if paused to save battery?
-            // Maybe loop slowly or just stop.
-            // Let keeps it running for fade out?
-            // For now, stop loop if paused?
-            // But "isPlaying" might toggle.
-            // We should animate if playing.
-            // And maybe once to clear.
+    function draw(): void {
+        if (!canvas || !ctx || !player.visualizer) {
+            animationId = requestAnimationFrame(draw);
             return;
         }
 
-        const data = player.visualizer.getFrequencyData();
-        // data is 0-255, 1024 bins usually.
-        // We want 32 bars.
-        // We can sample or average.
+        const W = canvas.width;
+        const H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const rawData = player.visualizer.getFrequencyData(); // Uint8Array [0-255]
+        const binCount = rawData.length;
+        const step = Math.floor(binCount / BAR_COUNT);
+        const barW = (W - BAR_GAP * (BAR_COUNT - 1)) / BAR_COUNT;
 
-        const step = Math.floor(data.length / BAR_COUNT);
-
+        // Smooth and draw bars
         for (let i = 0; i < BAR_COUNT; i++) {
-            const value = data[i * step]; // simple sampling
-            const percent = value / 255;
-            const height = percent * canvas.height;
+            // Average a range of bins for better visual
+            let sum = 0;
+            for (let b = 0; b < step; b++) {
+                sum += rawData[i * step + b] ?? 0;
+            }
+            const avg = sum / step;
+            const normalized = avg / 255;
 
-            const x = i * (BAR_WIDTH + BAR_GAP);
-            const y = canvas.height - height;
+            // Temporal smoothing
+            smoothBars[i] =
+                smoothBars[i] * SMOOTHING + normalized * (1 - SMOOTHING);
 
-            ctx.fillStyle = `rgba(255, 255, 255, ${0.2 + percent * 0.8})`;
-            ctx.fillRect(x, y, BAR_WIDTH, height);
+            const barH = smoothBars[i] * H;
+            const x = i * (barW + BAR_GAP);
+            const y = H - barH;
+
+            // Primary color gradient with alpha based on amplitude
+            const alpha = 0.3 + smoothBars[i] * 0.7;
+            const grd = ctx.createLinearGradient(0, y, 0, H);
+            grd.addColorStop(0, `rgba(100, 103, 242, ${alpha})`);
+            grd.addColorStop(0.5, `rgba(139, 92, 246, ${alpha * 0.8})`);
+            grd.addColorStop(1, `rgba(100, 103, 242, 0.2)`);
+
+            // Rounded top bar
+            ctx.beginPath();
+            const radius = Math.min(barW / 2, 3);
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + barW - radius, y);
+            ctx.arcTo(x + barW, y, x + barW, y + radius, radius);
+            ctx.lineTo(x + barW, H);
+            ctx.lineTo(x, H);
+            ctx.lineTo(x, y + radius);
+            ctx.arcTo(x, y, x + radius, y, radius);
+            ctx.closePath();
+            ctx.fillStyle = grd;
+            ctx.fill();
+
+            // Glow for tall bars
+            if (smoothBars[i] > 0.5) {
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = `rgba(100, 103, 242, 0.6)`;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
         }
+
+        // Soft peak line
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < BAR_COUNT; i++) {
+            const barH = smoothBars[i] * H;
+            const x = i * (barW + BAR_GAP) + barW / 2;
+            const y = H - barH;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
 
         animationId = requestAnimationFrame(draw);
     }
 
+    function stopDraw(): void {
+        cancelAnimationFrame(animationId);
+        if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        smoothBars.fill(0);
+    }
+
+    // React to play/pause state
     $effect(() => {
         if (player.isPlaying) {
+            cancelAnimationFrame(animationId);
             draw();
         } else {
-            cancelAnimationFrame(animationId);
-            // clear
-            if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stopDraw();
         }
+
+        return () => {
+            cancelAnimationFrame(animationId);
+        };
     });
 
-    onMount(() => {
-        ctx = canvas.getContext("2d");
-        return () => cancelAnimationFrame(animationId);
+    // Bind canvas and get context
+    $effect(() => {
+        if (canvas) {
+            ctx = canvas.getContext("2d");
+        }
     });
 </script>
 
 <canvas
     bind:this={canvas}
-    width={BAR_COUNT * (BAR_WIDTH + BAR_GAP)}
-    height="40"
-    class="opacity-50"
+    width={280}
+    height={48}
+    class="w-full h-12 rounded-lg"
+    style="opacity: 0.9"
+    aria-hidden="true"
 ></canvas>

@@ -29,7 +29,16 @@ CREATE TABLE IF NOT EXISTS tracks (
   bpm             INTEGER,
   artwork_hash    TEXT,
   musicbrainz_id  TEXT,
-  acoustid_id     TEXT
+  acoustid_id     TEXT,
+  -- Extended tags (v2)
+  composer        TEXT,
+  lyrics          TEXT,
+  isrc            TEXT,
+  label           TEXT,
+  comment         TEXT,
+  mood            TEXT,
+  replaygain_track_db REAL,
+  keywords        TEXT  -- JSON array of user-defined tags
 );
 
 CREATE TABLE IF NOT EXISTS albums (
@@ -110,11 +119,11 @@ END;
  * Current User Version of the database (for migrations).
  * Increment this number when adding new migrations.
  */
-export const CURRENT_DB_VERSION = 1;
+export const CURRENT_DB_VERSION = 2;
 
 /**
  * Type guard to check if a DB row is a Track.
  */
 export function isTrack(row: unknown): row is import('../types').Track {
-    return typeof row === 'object' && row !== null && 'file_path' in row && 'id' in row;
+  return typeof row === 'object' && row !== null && 'file_path' in row && 'id' in row;
 }

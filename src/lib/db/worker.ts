@@ -125,17 +125,19 @@ self.onmessage = async (event: any) => {
             }
             try {
                 const { tracks } = payload;
-                const localDb = db; // Capture for transaction closure
+                const localDb = db;
                 localDb.transaction(() => {
                     const stmt = localDb.prepare(`
                         INSERT OR REPLACE INTO tracks (
-                            file_path, title, artist, album, album_artist, genre, year, 
-                            track_number, disc_number, duration, bitrate, sample_rate, 
-                            play_count, rating, bpm, artwork_hash, musicbrainz_id, date_added
+                            file_path, title, artist, album, album_artist, genre, year,
+                            track_number, disc_number, duration, bitrate, sample_rate,
+                            play_count, rating, bpm, artwork_hash, musicbrainz_id, date_added,
+                            composer, lyrics, isrc, label, comment, mood, replaygain_track_db, keywords
                         ) VALUES (
                             $file_path, $title, $artist, $album, $album_artist, $genre, $year,
                             $track_number, $disc_number, $duration, $bitrate, $sample_rate,
-                            $play_count, $rating, $bpm, $artwork_hash, $musicbrainz_id, $date_added
+                            $play_count, $rating, $bpm, $artwork_hash, $musicbrainz_id, $date_added,
+                            $composer, $lyrics, $isrc, $label, $comment, $mood, $replaygain_track_db, $keywords
                         )
                     `);
                     try {
@@ -159,7 +161,16 @@ self.onmessage = async (event: any) => {
                                 $bpm: track.bpm,
                                 $artwork_hash: track.artwork_hash,
                                 $musicbrainz_id: track.musicbrainz_id,
-                                $date_added: track.date_added ? new Date(track.date_added).getTime() : Date.now()
+                                $date_added: track.date_added ? new Date(track.date_added).getTime() : Date.now(),
+                                // Extended tags (v2)
+                                $composer: track.composer,
+                                $lyrics: track.lyrics,
+                                $isrc: track.isrc,
+                                $label: track.label,
+                                $comment: track.comment,
+                                $mood: track.mood,
+                                $replaygain_track_db: track.replaygain_track_db,
+                                $keywords: track.keywords ? JSON.stringify(track.keywords) : null,
                             });
                             stmt.step();
                             stmt.reset();
@@ -170,8 +181,7 @@ self.onmessage = async (event: any) => {
                     }
                 });
                 log(`UPSERT_TRACKS transaction committed for ${tracks.length} tracks`);
-
-                // Verify immediate count
+                // Verify
                 const countResult: any[] = [];
                 localDb.exec({
                     sql: 'SELECT COUNT(*) as count FROM tracks',
@@ -179,6 +189,56 @@ self.onmessage = async (event: any) => {
                     callback: (row: any) => { countResult.push(row); }
                 });
                 log(`Verification: tracks table now has ${countResult[0]?.count} rows`);
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: countResult[0]?.count } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'GET_TRACK_BY_ID':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const result: any[] = [];
+                db.exec({
+                    sql: 'SELECT * FROM tracks WHERE id = ?',
+                    bind: [payload.id],
+                    rowMode: 'object',
+                    callback: (row: any) => {
+                        // Hydrate keywords JSON
+                        if (row.keywords) {
+                            try { row.keywords = JSON.parse(row.keywords); } catch { row.keywords = []; }
+                        } else {
+                            row.keywords = [];
+                        }
+                        result.push(row);
+                    }
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: result[0] ?? null } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'UPDATE_TRACK':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const { trackId, fields } = payload as { trackId: number; fields: Record<string, unknown> };
+                // Serialize keywords if present
+                if (Array.isArray(fields.keywords)) {
+                    fields.keywords = JSON.stringify(fields.keywords);
+                }
+                const setClauses = Object.keys(fields).map(k => `${k} = $${k}`).join(', ');
+                const bindings: Record<string, unknown> = { $id: trackId };
+                for (const [k, v] of Object.entries(fields)) bindings[`$${k}`] = v;
+                // @ts-ignore - sqlite-wasm bind accepts Record<string,unknown> at runtime
+                db.exec({ sql: `UPDATE tracks SET ${setClauses} WHERE id = $id`, bind: bindings });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
             } catch (err: any) {
                 self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
             }

@@ -2,6 +2,7 @@
   import { db } from "$lib/db/database.svelte";
   import { player } from "$lib/audio/player.svelte";
   import { playlists } from "$lib/audio/playlists.svelte";
+  import { fsManager } from "$lib/fs/fileSystemManager.svelte";
   import PlaylistCreateDialog from "../components/playlists/PlaylistCreateDialog.svelte";
   import type { Track } from "$lib/types";
 
@@ -10,7 +11,25 @@
   let loading = $state(false);
   let showPlaylistCreate = $state(false);
 
-  // Palette of glow colors for cards (cycles through)
+  // ─── Artwork lazy-load ────────────────────────────────────────────────────────────
+  // IMPORTANT — Svelte 5 Rule: NEVER mutate $state from template expressions,
+  // {@const} blocks, or $derived. Only mutate from $effect or event handlers.
+  const artUrlMap = $state<Record<number, string | null>>({});
+
+  $effect(() => {
+    if (activeFilter !== "All") return;
+    const visible = items.slice(0, 50);
+    for (const track of visible) {
+      if (!track.artwork_hash) continue;
+      if (track.id in artUrlMap) continue; // already requested
+      artUrlMap[track.id] = null; // reserve slot
+      player.getArtworkUrl(track.artwork_hash).then((url) => {
+        artUrlMap[track.id] = url;
+      });
+    }
+  });
+
+  // ─── Palette ─────────────────────────────────────────────────────────────────
   const glowColors = [
     "shadow-[0_0_25px_-5px_rgba(168,85,247,0.5)] border-purple-500/30",
     "shadow-[0_0_25px_-5px_rgba(236,72,153,0.5)] border-pink-500/30",
@@ -19,8 +38,6 @@
     "shadow-[0_0_25px_-5px_rgba(255,255,255,0.2)] border-white/20",
     "shadow-[0_0_25px_-5px_rgba(249,115,22,0.5)] border-orange-500/30",
   ];
-
-  // Background gradient colors for artwork placeholders
   const gradients = [
     "from-purple-900/60 to-indigo-900/60",
     "from-pink-900/60 to-rose-900/60",
@@ -30,6 +47,7 @@
     "from-orange-900/60 to-red-900/60",
   ];
 
+  // ─── Data loading ─────────────────────────────────────────────────────────────
   $effect(() => {
     const _ = db.lastUpdate;
     if (db.isReady) loadItems(activeFilter);
@@ -63,8 +81,11 @@
   const filters = ["All", "Albums", "Artists", "Playlists"] as const;
 </script>
 
-<!-- Ambient Background Gradients (fixed, behind everything) -->
-<div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+<!-- Ambient Background Gradients -->
+<div
+  class="fixed inset-0 pointer-events-none z-0 overflow-hidden"
+  aria-hidden="true"
+>
   <div
     class="absolute top-[-10%] left-[-10%] w-[60%] h-[45%] rounded-full bg-indigo-600/20 blur-[120px]"
   ></div>
@@ -75,7 +96,7 @@
 
 <div class="relative flex flex-col w-full max-w-md mx-auto min-h-full z-10">
   <!-- ═══════════════════════════════════════════
-       STICKY HEADER — Glass panel with rounded bottom
+       STICKY HEADER
   ═══════════════════════════════════════════ -->
   <header
     class="sticky top-0 z-30 flex items-center justify-between px-5 pt-12 pb-4
@@ -85,25 +106,28 @@
   >
     <a
       href="/settings"
-      class="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+      class="flex items-center justify-center w-10 h-10 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
       aria-label="Settings"
     >
-      <span class="material-symbols-rounded text-[28px]">settings</span>
+      <span class="material-symbols-rounded text-[26px]">settings</span>
     </a>
 
+    <!-- Branding: gradient "Hylst" -->
     <h1
-      class="font-bold text-2xl tracking-wide"
-      style="background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.55)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
+      class="font-extrabold tracking-tight"
+      style="font-size: 1.45rem; letter-spacing: -0.03em;
+        background: linear-gradient(135deg, #fff 20%, rgba(99,102,241,0.85) 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
     >
-      HAP
+      Hylst
     </h1>
 
     <a
       href="/search"
-      class="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+      class="flex items-center justify-center w-10 h-10 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
       aria-label="Search"
     >
-      <span class="material-symbols-rounded text-[28px]">search</span>
+      <span class="material-symbols-rounded text-[26px]">search</span>
     </a>
   </header>
 
@@ -113,18 +137,15 @@
   <main class="flex-1 overflow-y-auto no-scrollbar px-5 pt-6 pb-4">
     <!-- ─── Filter Tabs ─── -->
     <div
-      class="flex gap-3 pb-6 overflow-x-auto no-scrollbar"
+      class="flex gap-2.5 pb-6 overflow-x-auto no-scrollbar"
       style="mask-image: linear-gradient(to right, black 85%, transparent 100%)"
     >
       {#each filters as filter}
         <button
-          class="px-5 py-2.5 rounded-full font-medium text-sm whitespace-nowrap transition-all flex-shrink-0
-            {activeFilter === filter
-            ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.35)]'
-            : 'text-white/70 border border-white/10 hover:bg-white/10'}"
+          class="px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition-all flex-shrink-0 active:scale-95"
           style={activeFilter === filter
-            ? ""
-            : "backdrop-filter: blur(10px); background: rgba(255,255,255,0.04)"}
+            ? "background: white; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3)"
+            : "background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.10); backdrop-filter: blur(10px)"}
           onclick={() => (activeFilter = filter)}
         >
           {filter}
@@ -132,13 +153,27 @@
       {/each}
     </div>
 
+    <!-- ─── Loading Skeleton ─── -->
     {#if loading}
-      <!-- Loading -->
-      <div class="flex flex-col items-center justify-center py-24 gap-4">
-        <div
-          class="w-10 h-10 rounded-full border-2 border-white/10 border-t-indigo-400 animate-spin"
-        ></div>
-        <p class="text-xs text-white/30 tracking-widest uppercase">Loading…</p>
+      <div class="grid grid-cols-2 gap-4 pb-4">
+        {#each Array(6) as _}
+          <div class="flex flex-col gap-3">
+            <div
+              class="aspect-square rounded-[1.5rem] animate-pulse"
+              style="background: rgba(255,255,255,0.06)"
+            ></div>
+            <div class="flex flex-col gap-1.5 px-1">
+              <div
+                class="h-3 rounded-full w-3/4 animate-pulse"
+                style="background: rgba(255,255,255,0.06)"
+              ></div>
+              <div
+                class="h-2.5 rounded-full w-1/2 animate-pulse"
+                style="background: rgba(255,255,255,0.04)"
+              ></div>
+            </div>
+          </div>
+        {/each}
       </div>
     {:else if items.length === 0}
       <!-- Empty State -->
@@ -157,32 +192,35 @@
             Add a folder in Settings to discover your music.
           </p>
         </div>
-        <a
-          href="/settings"
-          class="px-6 py-2.5 rounded-full font-semibold text-sm text-white flex items-center gap-2 transition-all"
+        <button
+          onclick={() => fsManager.selectRootFolder()}
+          class="px-6 py-3 rounded-full font-semibold text-sm text-white flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
           style="background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 0 24px rgba(99,102,241,0.4)"
         >
           <span class="material-symbols-rounded text-[20px]"
             >create_new_folder</span
           >
           Add Folder
-        </a>
+        </button>
       </div>
     {:else if activeFilter === "All"}
-      <!-- ─── Track Grid (Stitch style: 2-col card grid) ─── -->
-      <h2 class="font-semibold text-xl text-white/90 mb-4">Recently Added</h2>
+      <!-- ─── Track Grid ─── -->
+      <div class="flex items-baseline justify-between mb-4">
+        <h2 class="font-bold text-xl text-white/90">Recently Added</h2>
+        <span class="text-xs text-white/30 font-medium"
+          >{items.length} tracks</span
+        >
+      </div>
       <div class="grid grid-cols-2 gap-4 pb-4">
         {#each items.slice(0, 50) as track, i}
-          {@const isPlaying =
-            player.currentTrack?.id === track.id && player.isPlaying}
           {@const isCurrent = player.currentTrack?.id === track.id}
           <div class="group flex flex-col gap-3">
             <!-- Artwork Card -->
             <div
-              class="relative aspect-square rounded-[1.5rem] overflow-hidden border cursor-pointer {glowColors[
+              class="relative aspect-square rounded-[1.5rem] overflow-hidden border cursor-pointer transition-transform duration-100 active:scale-95 {glowColors[
                 i % glowColors.length
               ]}"
-              style="background: linear-gradient(135deg, rgba(20,20,35,0.9), rgba(10,10,20,1))"
+              style="background: linear-gradient(135deg, rgba(20,20,35,0.9), rgba(10,10,20,1)); touch-action: manipulation"
               onclick={() => player.playFromList(items, i)}
               role="button"
               tabindex="0"
@@ -190,65 +228,96 @@
               onkeydown={(e) =>
                 e.key === "Enter" && player.playFromList(items, i)}
             >
-              <!-- Placeholder gradient art -->
-              <div
-                class="absolute inset-0 bg-gradient-to-br {gradients[
-                  i % gradients.length
-                ]} opacity-70"
-              ></div>
+              <!-- Artwork or gradient placeholder -->
+              {#if artUrlMap[track.id]}
+                <img
+                  src={artUrlMap[track.id]}
+                  alt=""
+                  class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                  loading="lazy"
+                />
+                <!-- Dark overlay for text contrast -->
+                <div
+                  class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"
+                ></div>
+              {:else}
+                <div
+                  class="absolute inset-0 bg-gradient-to-br {gradients[
+                    i % gradients.length
+                  ]} opacity-70"
+                ></div>
+                <div
+                  class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"
+                ></div>
+              {/if}
 
-              <!-- Music note placeholder -->
+              <!-- Playing indicator or music note -->
               <div class="absolute inset-0 flex items-center justify-center">
                 {#if isCurrent && player.isPlaying}
-                  <!-- Animated bars when playing -->
-                  <div class="flex items-end gap-[3px] h-8">
+                  <div class="flex items-end gap-[3px] h-8 drop-shadow-lg">
                     {#each [0.6, 1, 0.4, 0.8, 0.3, 0.9, 0.5] as h, j}
                       <div
-                        class="w-1 rounded-full bg-indigo-400"
+                        class="w-1 rounded-full bg-white"
                         style="height: {h * 28}px; animation: bounce {0.8 +
                           j *
-                            0.15}s ease-in-out infinite alternate; box-shadow: 0 0 8px rgba(99,102,241,0.8)"
+                            0.15}s ease-in-out infinite alternate; box-shadow: 0 0 8px rgba(255,255,255,0.6)"
                       ></div>
                     {/each}
                   </div>
-                {:else}
+                {:else if !artUrlMap[track.id]}
                   <span
-                    class="material-symbols-rounded text-4xl text-white/10 group-hover:text-white/20 transition-colors"
+                    class="material-symbols-rounded text-4xl text-white/15 group-hover:text-white/25 transition-colors"
                   >
                     {isCurrent ? "pause_circle" : "music_note"}
                   </span>
                 {/if}
               </div>
 
-              <!-- Gradient overlay -->
-              <div
-                class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"
-              ></div>
-
-              <!-- Hover Play button -->
+              <!-- Hover play button (desktop) -->
               {#if !isCurrent}
                 <button
                   class="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center text-white
-                         opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+                         opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-250"
                   style="background: rgba(255,255,255,0.2); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15)"
                   aria-label="Play"
+                  tabindex="-1"
                 >
                   <span class="material-symbols-rounded text-[22px] ml-0.5"
                     >play_arrow</span
                   >
                 </button>
               {/if}
+
+              <!-- Current ring -->
+              {#if isCurrent}
+                <div
+                  class="absolute inset-0 rounded-[1.5rem] pointer-events-none"
+                  style="border: 2px solid var(--hap-primary,#6467f2); box-shadow: inset 0 0 12px rgba(99,102,241,0.3)"
+                ></div>
+              {/if}
             </div>
 
             <!-- Track info -->
             <div class="px-1">
-              <h3
-                class="text-white font-medium text-sm truncate leading-snug
-                {isCurrent ? 'text-indigo-300' : ''}"
-              >
-                {track.title ?? track.file_name ?? "Unknown"}
-              </h3>
-              <p class="text-white/50 text-xs truncate mt-0.5">
+              <div class="flex items-start justify-between gap-1">
+                <h3
+                  class="font-semibold text-sm truncate leading-snug"
+                  style={isCurrent
+                    ? "color: var(--hap-primary,#6467f2); font-weight: 700"
+                    : "color: rgba(255,255,255,0.9)"}
+                >
+                  {track.title ?? track.file_name ?? "Unknown"}
+                </h3>
+                <a
+                  href="/track/{track.id}"
+                  class="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-white/25 hover:text-white/60 hover:bg-white/10 transition-all"
+                  aria-label="Track details"
+                  onclick={(e) => e.stopPropagation()}
+                >
+                  <span class="material-symbols-rounded text-[16px]">info</span>
+                </a>
+              </div>
+              <p class="text-white/45 text-xs truncate mt-0.5">
                 {track.artist ?? "Unknown Artist"}
               </p>
             </div>
@@ -256,15 +325,20 @@
         {/each}
       </div>
     {:else if activeFilter === "Albums"}
-      <h2 class="font-semibold text-xl text-white/90 mb-4">Albums</h2>
+      <div class="flex items-baseline justify-between mb-4">
+        <h2 class="font-bold text-xl text-white/90">Albums</h2>
+        <span class="text-xs text-white/30 font-medium"
+          >{items.length} albums</span
+        >
+      </div>
       <div class="grid grid-cols-2 gap-4">
         {#each items as album, i}
           <div class="group flex flex-col gap-3">
             <div
-              class="relative aspect-square rounded-[1.5rem] overflow-hidden border cursor-pointer {glowColors[
+              class="relative aspect-square rounded-[1.5rem] overflow-hidden border cursor-pointer transition-transform duration-100 active:scale-95 {glowColors[
                 i % glowColors.length
               ]}"
-              style="background: linear-gradient(135deg, rgba(20,20,35,0.9), rgba(10,10,20,1))"
+              style="background: linear-gradient(135deg, rgba(20,20,35,0.9), rgba(10,10,20,1)); touch-action: manipulation"
             >
               <div
                 class="absolute inset-0 bg-gradient-to-br {gradients[
@@ -280,8 +354,9 @@
                 class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
               ></div>
               <button
-                class="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+                class="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-250"
                 style="background: rgba(255,255,255,0.2); backdrop-filter: blur(12px)"
+                tabindex="-1"
               >
                 <span class="material-symbols-rounded text-[22px] ml-0.5"
                   >play_arrow</span
@@ -289,10 +364,10 @@
               </button>
             </div>
             <div class="px-1">
-              <h3 class="text-white font-medium text-sm truncate">
+              <h3 class="text-white/90 font-semibold text-sm truncate">
                 {album.album ?? "Unknown Album"}
               </h3>
-              <p class="text-white/50 text-xs truncate">
+              <p class="text-white/45 text-xs truncate">
                 {album.artist || album.album_artist || "Unknown"}
               </p>
             </div>
@@ -300,12 +375,17 @@
         {/each}
       </div>
     {:else if activeFilter === "Artists"}
-      <h2 class="font-semibold text-xl text-white/90 mb-4">Artists</h2>
+      <div class="flex items-baseline justify-between mb-4">
+        <h2 class="font-bold text-xl text-white/90">Artists</h2>
+        <span class="text-xs text-white/30 font-medium"
+          >{items.length} artists</span
+        >
+      </div>
       <div class="grid grid-cols-2 gap-3">
         {#each items as artist}
           <div
-            class="flex flex-col items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-white/5 transition-colors"
-            style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07)"
+            class="flex flex-col items-center gap-3 p-4 rounded-2xl cursor-pointer transition-all duration-150 active:scale-95"
+            style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); touch-action: manipulation"
           >
             <div
               class="w-20 h-20 rounded-full flex items-center justify-center"
@@ -317,11 +397,11 @@
             </div>
             <div class="text-center">
               <div
-                class="font-semibold text-white text-sm truncate max-w-[130px]"
+                class="font-semibold text-white/90 text-sm truncate max-w-[130px]"
               >
                 {artist.artist}
               </div>
-              <div class="text-xs text-white/40">
+              <div class="text-xs text-white/40 mt-0.5">
                 {artist.track_count}
                 {artist.track_count === 1 ? "track" : "tracks"}
               </div>
@@ -330,13 +410,18 @@
         {/each}
       </div>
     {:else if activeFilter === "Playlists"}
-      <h2 class="font-semibold text-xl text-white/90 mb-4">Playlists</h2>
+      <div class="flex items-baseline justify-between mb-4">
+        <h2 class="font-bold text-xl text-white/90">Playlists</h2>
+        <span class="text-xs text-white/30 font-medium"
+          >{items.length} playlists</span
+        >
+      </div>
       <div class="space-y-2">
         {#each items as pl}
           <a
             href="/playlists/{pl.id}"
-            class="p-4 rounded-2xl flex items-center gap-4 hover:bg-white/5 transition-all group"
-            style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07)"
+            class="p-4 rounded-2xl flex items-center gap-4 transition-all duration-150 active:scale-[0.98] group"
+            style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); touch-action: manipulation"
           >
             <div
               class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors group-hover:bg-hap-primary/30"
@@ -348,7 +433,7 @@
             </div>
             <div class="min-w-0 flex-1">
               <div
-                class="font-semibold text-white group-hover:text-hap-primary transition-colors"
+                class="font-semibold text-white/90 group-hover:text-hap-primary transition-colors"
               >
                 {pl.name}
               </div>
@@ -363,8 +448,8 @@
           </a>
         {/each}
         <button
-          class="w-full p-4 mt-2 rounded-2xl flex items-center justify-center gap-2 text-white/40 hover:text-white transition-colors"
-          style="border: 1px dashed rgba(255,255,255,0.15)"
+          class="w-full p-4 mt-2 rounded-2xl flex items-center justify-center gap-2 text-white/40 hover:text-white transition-all active:scale-95"
+          style="border: 1px dashed rgba(255,255,255,0.15); touch-action: manipulation"
           onclick={() => (showPlaylistCreate = true)}
         >
           <span class="material-symbols-rounded">add</span>

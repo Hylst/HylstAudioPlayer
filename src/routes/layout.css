@@ -5,6 +5,45 @@
   --hap-primary-glow: rgba(99, 102, 241, 0.4);
 }
 
+/* ─── View Transitions — smooth page fade ─── */
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes page-fade-out {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  to {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+
+::view-transition-old(root) {
+  animation: 180ms ease page-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 180ms ease page-fade-in;
+}
+
+/* Don't animate PlayerBar + Nav (they persist across pages) */
+::view-transition-old(persistent-ui),
+::view-transition-new(persistent-ui) {
+  animation: none;
+}
+
 @theme {
   /* ─── Colors ─── */
   --color-hap-bg: #0a0a12;
@@ -145,5 +184,10 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
   }
 }

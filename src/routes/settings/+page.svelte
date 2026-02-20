@@ -2,11 +2,11 @@
     import { fsManager } from "$lib/fs/fileSystemManager.svelte";
     import { db } from "$lib/db/database.svelte";
     import { player } from "$lib/audio/player.svelte";
+    import { eq, EQ_PRESETS } from "$lib/audio/equalizer";
 
     let trackCount = $state(0);
 
-    // EQ state: 10 bands in dB (-12 to +12)
-    // Frequencies: 32, 64, 125, 250, 500, 1k, 2k, 4k, 8k, 16k Hz
+    // EQ UI configuration
     const eqFreqs = [
         "32",
         "64",
@@ -19,27 +19,11 @@
         "8K",
         "16K",
     ];
-    let eqBands = $state<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+    // Audio enhancements (currently UI only, can be added to eq store later)
     let bassBoost = $state(false);
     let surroundSound = $state(false);
     let vocalBoost = $state(false);
-    let preampGain = $state(0);
-
-    // Active preset
-    let activePreset = $state("Flat");
-    const presets: Record<string, number[]> = {
-        Flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        Rock: [4, 3, -1, -1, 0, 2, 4, 5, 5, 4],
-        Jazz: [3, 2, 0, 2, -2, -2, 0, 1, 3, 4],
-        Pop: [-1, -1, 0, 2, 4, 4, 2, 0, -1, -2],
-        Classic: [4, 3, 3, 2, -1, -1, 0, 2, 3, 4],
-        Electronic: [5, 4, 1, 0, -2, 2, 1, 1, 5, 5],
-    };
-
-    function applyPreset(name: string): void {
-        activePreset = name;
-        eqBands = [...(presets[name] ?? presets["Flat"])];
-    }
 
     function bandToPercent(val: number): number {
         return ((val + 12) / 24) * 100;
@@ -47,8 +31,7 @@
 
     function handleBandInput(i: number, e: Event): void {
         const v = parseFloat((e.target as HTMLInputElement).value);
-        eqBands = eqBands.map((b, idx) => (idx === i ? v : b));
-        activePreset = "Custom";
+        eq.setBand(i, v);
     }
 
     // Poll for track count
@@ -101,19 +84,19 @@
                 class="flex overflow-x-auto gap-2 pb-2"
                 style="scrollbar-width: none"
             >
-                {#each Object.keys(presets) as preset}
+                {#each Object.keys(EQ_PRESETS) as preset}
                     <button
-                        class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all {activePreset ===
+                        class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all {eq.activePreset ===
                         preset
                             ? ''
                             : 'text-white/60 hover:text-white hover:bg-white/10'}"
-                        style={activePreset === preset
+                        style={eq.activePreset === preset
                             ? `background: var(--hap-primary, #6467f2); color: white; box-shadow: 0 0 16px -4px var(--hap-primary-glow, rgba(100,103,242,0.5))`
                             : `background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08)`}
-                        onclick={() => applyPreset(preset)}>{preset}</button
+                        onclick={() => eq.applyPreset(preset)}>{preset}</button
                     >
                 {/each}
-                {#if activePreset === "Custom"}
+                {#if eq.activePreset === "Custom"}
                     <span
                         class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold"
                         style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); color: rgba(255,255,255,0.3)"
@@ -138,7 +121,7 @@
                 <div
                     class="grid grid-cols-10 gap-1 h-52 items-end justify-items-center"
                 >
-                    {#each eqBands as band, i}
+                    {#each eq.bands as band, i}
                         {@const heightPct = bandToPercent(band)}
                         <div
                             class="flex flex-col items-center gap-2 h-full justify-end group w-full"
@@ -334,7 +317,7 @@
                     <span
                         class="text-sm font-bold tabular-nums"
                         style="color: var(--hap-primary, #6467f2)"
-                        >{preampGain > 0 ? "+" : ""}{preampGain} dB</span
+                        >{eq.preampGain > 0 ? "+" : ""}{eq.preampGain} dB</span
                     >
                 </div>
                 <div
@@ -343,7 +326,7 @@
                 >
                     <div
                         class="absolute top-0 left-0 h-full rounded-full"
-                        style="width: {((preampGain + 12) / 24) *
+                        style="width: {((eq.preampGain + 12) / 24) *
                             100}%; background: linear-gradient(to right, var(--hap-primary, #6467f2), rgba(100,103,242,0.5))"
                     ></div>
                     <input
@@ -351,14 +334,14 @@
                         min="-12"
                         max="12"
                         step="0.5"
-                        bind:value={preampGain}
+                        bind:value={eq.preampGain}
                         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        aria-label="Pre-amp gain: {preampGain}dB"
+                        aria-label="Pre-amp gain: {eq.preampGain}dB"
                     />
                     <!-- Thumb -->
                     <div
                         class="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white pointer-events-none"
-                        style="left: calc({((preampGain + 12) / 24) *
+                        style="left: calc({((eq.preampGain + 12) / 24) *
                             100}% - 10px); box-shadow: 0 0 12px var(--hap-primary-glow, rgba(100,103,242,0.6))"
                     ></div>
                 </div>

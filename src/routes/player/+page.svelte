@@ -1,6 +1,7 @@
 <script lang="ts">
     import { player } from "$lib/audio/player.svelte";
     import { formatTime } from "$lib/utils/format";
+    import VisualizerCanvas from "$lib/../components/player/VisualizerCanvas.svelte";
 
     let isDragging = $state(false);
     let dragTime = $state(0);
@@ -28,12 +29,6 @@
         const idx = modes.indexOf(player.repeatMode);
         player.repeatMode = modes[(idx + 1) % 3];
     }
-
-    // Waveform bar heights (static mock — visualizer will be a proper Canvas impl later)
-    const waveformBars = [
-        3, 5, 8, 6, 4, 10, 7, 3, 5, 9, 12, 8, 4, 6, 11, 9, 5, 3, 7, 8, 4, 6, 3,
-        5, 8, 10, 7, 4,
-    ];
 </script>
 
 <!-- ─── Dynamic Blurred Background ─── -->
@@ -103,7 +98,10 @@
         >
             <div
                 class="relative w-full aspect-square max-w-[320px] rounded-[2.5rem] transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                style="box-shadow: 0 20px 60px -10px var(--hap-primary-glow, rgba(100,103,242,0.5))"
+                style="box-shadow: 0 20px 60px -10px var(--hap-primary-glow, rgba(100,103,242,0.5));
+                  animation: {player.isPlaying
+                    ? 'vinyl-spin 20s linear infinite'
+                    : 'none'}"
             >
                 <!-- Glass border -->
                 <div
@@ -172,19 +170,7 @@
                 <div
                     class="relative h-12 w-full flex items-center gap-[2px] overflow-hidden"
                 >
-                    {#each waveformBars as barH, i}
-                        {@const pct = (i / waveformBars.length) * 100}
-                        {@const isPast = pct <= progressPercent}
-                        <div
-                            class="flex-1 rounded-full transition-all duration-150"
-                            style="height: {barH *
-                                4}px; min-height: 4px; background: {isPast
-                                ? 'var(--hap-primary, #6467f2)'
-                                : 'rgba(255,255,255,0.15)'}; box-shadow: {isPast
-                                ? '0 0 6px var(--hap-primary-glow, rgba(100,103,242,0.6))'
-                                : 'none'}"
-                        ></div>
-                    {/each}
+                    <VisualizerCanvas />
                     <!-- Playhead thumb -->
                     <div
                         class="absolute top-0 bottom-0 w-[2px] bg-white rounded-full pointer-events-none"
@@ -209,7 +195,11 @@
                     class="flex justify-between text-xs font-mono text-white/40 tracking-wider"
                 >
                     <span>{formatTime(displayTime)}</span>
-                    <span>{formatTime(duration)}</span>
+                    <span style="color: rgba(255,255,255,0.25)"
+                        >-{formatTime(
+                            Math.max(0, duration - displayTime),
+                        )}</span
+                    >
                 </div>
             </div>
 
@@ -236,7 +226,7 @@
                     <!-- Previous -->
                     <button
                         onclick={() => player.previous()}
-                        class="flex items-center justify-center w-14 h-14 rounded-full text-white hover:text-hap-primary transition-colors"
+                        class="flex items-center justify-center w-14 h-14 rounded-full text-white hover:text-hap-primary transition-all active:scale-90"
                         style="background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04)); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); box-shadow: 0 8px 32px 0 rgba(0,0,0,0.3)"
                         aria-label="Previous"
                     >
@@ -349,6 +339,14 @@
 </div>
 
 <style>
+    @keyframes vinyl-spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
     @keyframes spin-slow {
         from {
             transform: rotate(0deg);

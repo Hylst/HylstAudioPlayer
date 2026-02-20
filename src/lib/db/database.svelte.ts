@@ -140,6 +140,21 @@ export class DatabaseManager {
         console.log('[DB] lastUpdate incremented to:', this.lastUpdate);
     }
 
+    /** Fetch a single track with all extended tags (keywords hydrated from JSON). */
+    async getTrackById(id: number): Promise<Track | null> {
+        const result = await this.send('GET_TRACK_BY_ID', { id });
+        return (result?.result as Track) ?? null;
+    }
+
+    /**
+     * Partially update a track's fields (e.g. keywords, rating, mood).
+     * Only the provided fields will be changed. Triggers a reactive lastUpdate.
+     */
+    async updateTrack(trackId: number, fields: Partial<Track>): Promise<void> {
+        await this.send('UPDATE_TRACK', { trackId, fields });
+        this.lastUpdate++;
+    }
+
     /**
      * Export the current database as a binary Blob.
      */

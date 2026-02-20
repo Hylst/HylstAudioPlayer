@@ -67,43 +67,64 @@
     </div>
 
     <div class="flex items-center justify-between px-4 md:px-6 h-20 gap-4">
-      <!-- Track Info — tap to open fullscreen player -->
-      <a
-        href="/player"
-        class="flex items-center gap-3 w-5/12 min-w-0 group"
-        aria-label="Ouvrir le lecteur"
-      >
-        <!-- Artwork -->
-        <div
-          class="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden shadow-lg relative"
+      <!-- Track Info — compact row with viz quick-link + artwork + title -->
+      <div class="flex items-center gap-2 w-5/12 min-w-0">
+        <!-- Visualizer quick-link — desktop only (nav bar handles mobile) -->
+        <a
+          href="/visualizer"
+          class="relative shrink-0 w-8 h-8 hidden md:flex items-center justify-center rounded-full transition-all hover:bg-white/10"
+          style={player.isPlaying
+            ? "color: var(--hap-primary,#6467f2)"
+            : "color: rgba(255,255,255,0.35)"}
+          aria-label="Open visualizer"
         >
-          {#if player.currentTrackArtworkUrl}
-            <img
-              src={player.currentTrackArtworkUrl}
-              alt="Artwork"
-              class="w-full h-full object-cover"
-            />
-          {:else}
-            <span
-              class="material-symbols-rounded text-white/20 text-2xl"
-              style="animation: {player.isPlaying
-                ? 'spin 4s linear infinite'
-                : 'none'}">album</span
-            >
+          {#if player.isPlaying}
+            <div
+              class="absolute inset-0 rounded-full opacity-25"
+              style="border: 1px solid var(--hap-primary,#6467f2); animation: ping 2.5s ease-in-out infinite"
+            ></div>
           {/if}
-        </div>
+          <span class="material-symbols-rounded text-[20px]">graphic_eq</span>
+        </a>
 
-        <div class="min-w-0 flex flex-col">
+        <!-- Tap artwork/title to open fullscreen player -->
+        <a
+          href="/player"
+          class="flex items-center gap-3 min-w-0 group"
+          aria-label="Ouvrir le lecteur"
+        >
+          <!-- Artwork -->
           <div
-            class="font-bold text-white truncate text-sm group-hover:text-hap-primary transition-colors"
+            class="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden shadow-lg relative"
           >
-            {player.currentTrack.title}
+            {#if player.currentTrackArtworkUrl}
+              <img
+                src={player.currentTrackArtworkUrl}
+                alt="Artwork"
+                class="w-full h-full object-cover"
+              />
+            {:else}
+              <span
+                class="material-symbols-rounded text-white/20 text-2xl"
+                style="animation: {player.isPlaying
+                  ? 'spin 4s linear infinite'
+                  : 'none'}">album</span
+              >
+            {/if}
           </div>
-          <div class="text-xs text-white/50 truncate">
-            {player.currentTrack.artist}
+
+          <div class="min-w-0 flex flex-col">
+            <div
+              class="font-bold text-white truncate text-sm group-hover:text-hap-primary transition-colors"
+            >
+              {player.currentTrack.title}
+            </div>
+            <div class="text-xs text-white/50 truncate">
+              {player.currentTrack.artist}
+            </div>
           </div>
-        </div>
-      </a>
+        </a>
+      </div>
 
       <!-- Controls (Center) -->
       <div class="flex flex-col items-center justify-center gap-1 grow">

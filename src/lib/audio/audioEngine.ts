@@ -1,4 +1,5 @@
-import type { EQBand } from '$lib/types';
+// src/lib/audio/audioEngine.ts — Low-level Web Audio API engine
+// Manages the audio graph: Source → EQ Bands → Gain → Analyser → Destination
 
 export class AudioEngine {
     context: AudioContext;
@@ -6,32 +7,29 @@ export class AudioEngine {
     analyserNode: AnalyserNode;
     eqNodes: BiquadFilterNode[] = [];
 
-    private source: AudioBufferSourceNode | MediaElementAudioSourceNode | null = null;
+    // Only AudioBufferSourceNode is used — MediaElementAudioSourceNode is not.
+    private source: AudioBufferSourceNode | null = null;
     private startTime: number = 0;
     private pauseTime: number = 0;
     private isPlaying: boolean = false;
 
     constructor() {
-        this.context = new (window.AudioContext || (window as any).webkitAudioContext)();
+        this.context = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
         this.gainNode = this.context.createGain();
         this.analyserNode = this.context.createAnalyser();
         this.analyserNode.fftSize = 2048;
 
-        // Initialize EQ
+        // Initialize EQ chain, then connect: EQ → Gain → Analyser → Destination
         this.setupEQ();
-
-        // Connect graph: EQ -> Gain -> Analyser -> Destination
-        // (Source will connect to EQ input)
-        let lastNode: AudioNode = this.eqNodes[0];
         this.gainNode.connect(this.analyserNode);
         this.analyserNode.connect(this.context.destination);
     }
 
-    private setupEQ() {
+    private setupEQ(): void {
         const frequencies = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
         let previousNode: AudioNode | null = null;
 
-        this.eqNodes = frequencies.map((freq, index) => {
+        this.eqNodes = frequencies.map((freq) => {
             const filter = this.context.createBiquadFilter();
             filter.type = 'peaking';
             filter.frequency.value = freq;
@@ -45,40 +43,39 @@ export class AudioEngine {
             return filter;
         });
 
-        // Connect last EQ filter to Gain
+        // Connect last EQ filter to Gain node
         if (previousNode) {
             (previousNode as AudioNode).connect(this.gainNode);
         }
     }
 
+    /** Entry point for source nodes — connect here to route through EQ */
     get EQInputNode(): AudioNode {
         return this.eqNodes[0];
     }
 
-    async loadTrack(buffer: ArrayBuffer) {
+    async loadTrack(buffer: ArrayBuffer): Promise<void> {
         const audioBuffer = await this.context.decodeAudioData(buffer);
-        this.stop(); // Stop potential previous track
+        this.stop(); // Stop and clean up previous source
 
         this.source = this.context.createBufferSource();
         this.source.buffer = audioBuffer;
         this.source.connect(this.EQInputNode);
 
-        // Reset times
         this.startTime = 0;
         this.pauseTime = 0;
     }
 
-    play() {
+    play(): void {
         if (this.context.state === 'suspended') {
             this.context.resume();
         }
         if (!this.source) return;
         if (this.isPlaying) return;
 
-        // AudioBufferSourceNode can only be played once.
-        // If resuming from pause, a new source at the saved offset is needed.
+        // AudioBufferSourceNode can only play once — recreate from buffer on resume
         if (this.pauseTime > 0) {
-            const buffer = (this.source as AudioBufferSourceNode).buffer;
+            const buffer = this.source.buffer;
             if (buffer) {
                 this.source.disconnect();
                 this.createSourceFromBuffer(buffer, this.pauseTime);
@@ -94,19 +91,21 @@ export class AudioEngine {
         };
     }
 
-    pause() {
+    pause(): void {
         if (!this.source || !this.isPlaying) return;
         this.source.stop();
         this.pauseTime = this.context.currentTime - this.startTime;
         this.isPlaying = false;
     }
 
-    stop() {
+    stop(): void {
         if (this.source) {
             try {
                 this.source.stop();
                 this.source.disconnect();
-            } catch (e) { /* ignore if already stopped */ }
+            } catch {
+                // Already stopped — ignore
+            }
             this.source = null;
         }
         this.isPlaying = false;
@@ -114,10 +113,9 @@ export class AudioEngine {
         this.startTime = 0;
     }
 
-    seek(time: number) {
+    seek(time: number): void {
         if (!this.source) return;
-        // We must restart the source node
-        const buffer = (this.source as AudioBufferSourceNode).buffer;
+        const buffer = this.source.buffer;
         this.stop();
         if (buffer) {
             this.createSourceFromBuffer(buffer, time);
@@ -128,17 +126,17 @@ export class AudioEngine {
         }
     }
 
-    setVolume(v: number) {
+    setVolume(v: number): void {
         this.gainNode.gain.setTargetAtTime(v, this.context.currentTime, 0.01);
     }
 
-    setEQBand(index: number, gain: number) {
+    setEQBand(index: number, gain: number): void {
         if (this.eqNodes[index]) {
             this.eqNodes[index].gain.setTargetAtTime(gain, this.context.currentTime, 0.1);
         }
     }
 
-    private createSourceFromBuffer(buffer: AudioBuffer, offset: number) {
+    private createSourceFromBuffer(buffer: AudioBuffer, _offset: number): void {
         this.source = this.context.createBufferSource();
         this.source.buffer = buffer;
         this.source.connect(this.EQInputNode);
@@ -150,9 +148,6 @@ export class AudioEngine {
     }
 
     getDuration(): number {
-        if (this.source && (this.source as AudioBufferSourceNode).buffer) {
-            return (this.source as AudioBufferSourceNode).buffer!.duration;
-        }
-        return 0;
+        return this.source?.buffer?.duration ?? 0;
     }
 }

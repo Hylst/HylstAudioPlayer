@@ -1,6 +1,7 @@
 <script lang="ts">
     import { db } from "$lib/db/database.svelte";
     import { player } from "$lib/audio/player.svelte";
+    import { fsManager } from "$lib/fs/fileSystemManager.svelte";
     import TrackContextMenu from "../../components/player/TrackContextMenu.svelte";
     import type { Track } from "$lib/types";
 
@@ -117,10 +118,15 @@
                     <span class="material-symbols-rounded">filter_list</span>
                 </button>
                 <button
+                    onclick={() => {
+                        player.shuffleEnabled = true;
+                        player.playFromList(tracks, 0);
+                    }}
                     class="px-5 h-10 rounded-full flex items-center gap-2 bg-hap-primary text-white font-semibold text-sm shadow-lg shadow-hap-primary/20"
+                    aria-label="Shuffle all tracks"
                 >
                     <span class="material-symbols-rounded text-[20px]"
-                        >play_arrow</span
+                        >shuffle</span
                     >
                     Shuffle All
                 </button>
@@ -184,12 +190,12 @@
                     Your library is empty. Add a folder in Settings to start
                     listening.
                 </p>
-                <a
-                    href="/settings"
+                <button
+                    onclick={() => fsManager.selectRootFolder()}
                     class="mt-4 px-8 py-3 rounded-full bg-white text-black font-bold transition-transform hover:scale-105"
                 >
-                    Go to Settings
-                </a>
+                    Add Folder
+                </button>
             </div>
         {:else}
             <!-- Track Table -->

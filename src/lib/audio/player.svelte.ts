@@ -31,7 +31,7 @@ class PlayerStore {
     private timeInterval: any;
 
     // Public
-    visualizer: any; // Type 'Visualizer' causing import issues? Using 'any' for now to unblock or need to import Visualizer class if not already.
+    visualizer!: Visualizer;
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -111,7 +111,7 @@ class PlayerStore {
         }
     }
 
-    private async getArtworkUrl(hash: string): Promise<string | null> {
+    async getArtworkUrl(hash: string): Promise<string | null> {
         try {
             const root = await navigator.storage.getDirectory();
             const artDir = await root.getDirectoryHandle('art');

@@ -27,6 +27,15 @@ export interface Track {
     artwork_hash?: string;
     musicbrainz_id?: string;
     acoustid_id?: string;
+    // Extended tags (v2)
+    composer?: string;
+    lyrics?: string;
+    isrc?: string;
+    label?: string;
+    comment?: string;
+    mood?: string;
+    replaygain_track_db?: number;
+    keywords?: string[]; // stored as JSON, hydrated on read
 }
 
 /**
