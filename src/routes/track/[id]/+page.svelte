@@ -2,6 +2,10 @@
     import { page } from "$app/stores";
     import { db } from "$lib/db/database.svelte";
     import { player } from "$lib/audio/player.svelte";
+    import {
+        identifyTrack,
+        type TrackIdentification,
+    } from "$lib/meta/musicbrainz";
     import type { Track } from "$lib/types";
 
     // ─── State ────────────────────────────────────────────────────────────────────
@@ -87,6 +91,55 @@
 
     // ─── Is current track? ────────────────────────────────────────────────────────
     const isCurrent = $derived(player.currentTrack?.id === trackId);
+
+    // ─── Online Identification (Phase 3) ─────────────────────────────────────────
+    let identifyOpen = $state(false);
+    let identifying = $state(false);
+    let identifyError = $state<string | null>(null);
+    let identifyResults = $state<TrackIdentification[]>([]);
+    let applyingResult = $state<string | null>(null); // mbid being applied
+
+    async function runIdentify(): Promise<void> {
+        if (!track) return;
+        identifyOpen = true;
+        identifying = true;
+        identifyError = null;
+        identifyResults = [];
+        try {
+            identifyResults = await identifyTrack(
+                track.title ?? "",
+                track.artist ?? "",
+            );
+        } catch (err: unknown) {
+            identifyError =
+                err instanceof Error ? err.message : "Identification failed";
+        } finally {
+            identifying = false;
+        }
+    }
+
+    async function applyIdentification(
+        result: TrackIdentification,
+    ): Promise<void> {
+        if (!track) return;
+        applyingResult = result.mbid;
+        try {
+            const fields: Partial<Track> = {
+                musicbrainz_id: result.mbid,
+            };
+            if (result.album && !track.album) fields.album = result.album;
+            if (result.year && !track.year) fields.year = result.year;
+            if (result.label && !track.label) fields.label = result.label;
+            if (result.isrc && !track.isrc) fields.isrc = result.isrc;
+            await db.updateTrack(track.id, fields);
+            track = { ...track, ...fields };
+            identifyOpen = false;
+        } catch (err: unknown) {
+            identifyError = err instanceof Error ? err.message : "Apply failed";
+        } finally {
+            applyingResult = null;
+        }
+    }
 </script>
 
 <!-- Blurred artwork backdrop -->
@@ -439,6 +492,206 @@
                     </form>
                 </div>
             </section>
+
+            <!-- ─── Identify Online (Phase 3) ─────────────────────────────────── -->
+            <section>
+                <h3
+                    class="text-xs font-semibold text-white/35 uppercase tracking-widest mb-3"
+                >
+                    Online Identification
+                </h3>
+                <button
+                    onclick={runIdentify}
+                    disabled={identifying}
+                    class="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[0.98] disabled:opacity-50"
+                    style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25)"
+                    aria-label="Identify track online via MusicBrainz"
+                >
+                    {#if identifying}
+                        <span
+                            class="material-symbols-rounded text-[22px] animate-spin"
+                            style="color: var(--hap-primary,#6467f2)"
+                            >autorenew</span
+                        >
+                    {:else}
+                        <span
+                            class="material-symbols-rounded text-[22px]"
+                            style="color: var(--hap-primary,#6467f2); font-variation-settings: 'FILL' 1"
+                            >travel_explore</span
+                        >
+                    {/if}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-white">
+                            {identifying
+                                ? "Searching MusicBrainz…"
+                                : "Identify Online"}
+                        </p>
+                        <p class="text-xs text-white/40">
+                            MusicBrainz · Cover Art Archive
+                        </p>
+                    </div>
+                    <span
+                        class="material-symbols-rounded text-[18px] text-white/20"
+                        >chevron_right</span
+                    >
+                </button>
+
+                {#if identifyError}
+                    <div
+                        class="mt-3 px-4 py-3 rounded-2xl flex items-center gap-2"
+                        style="background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.25)"
+                    >
+                        <span
+                            class="material-symbols-rounded text-[18px] text-red-400"
+                            >error</span
+                        >
+                        <p class="text-xs text-red-300">{identifyError}</p>
+                    </div>
+                {/if}
+            </section>
         </div>
     {/if}
 </div>
+
+<!-- ─── Identify Results Bottom Sheet ───────────────────────────────────────── -->
+{#if identifyOpen && !identifying}
+    <!-- Backdrop -->
+    <div
+        class="fixed inset-0 z-50"
+        style="background: rgba(0,0,0,0.7); backdrop-filter: blur(4px)"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Identification results"
+    >
+        <!-- Sheet -->
+        <div
+            class="absolute bottom-0 left-0 right-0 rounded-t-[2rem] flex flex-col max-h-[80vh]"
+            style="background: #0e0e1e; border-top: 1px solid rgba(255,255,255,0.10)"
+        >
+            <!-- Sheet handle -->
+            <div class="flex justify-center pt-3 pb-1">
+                <div
+                    class="w-10 h-1 rounded-full"
+                    style="background: rgba(255,255,255,0.15)"
+                ></div>
+            </div>
+
+            <!-- Sheet header -->
+            <div class="flex items-center justify-between px-5 py-3">
+                <h2 class="text-base font-bold text-white">
+                    Results from MusicBrainz
+                </h2>
+                <button
+                    onclick={() => (identifyOpen = false)}
+                    class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50"
+                    aria-label="Close"
+                >
+                    <span class="material-symbols-rounded text-[20px]"
+                        >close</span
+                    >
+                </button>
+            </div>
+
+            <!-- Results list -->
+            <div class="overflow-y-auto flex-1 px-5 pb-8 flex flex-col gap-3">
+                {#if identifyResults.length === 0}
+                    <div class="py-12 text-center">
+                        <span
+                            class="material-symbols-rounded text-5xl text-white/15"
+                            >search_off</span
+                        >
+                        <p class="text-white/40 mt-3">No results found</p>
+                        <p class="text-xs text-white/25 mt-1">
+                            Try editing the title/artist and searching again
+                        </p>
+                    </div>
+                {:else}
+                    {#each identifyResults as result}
+                        <div
+                            class="flex gap-4 rounded-2xl p-4"
+                            style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08)"
+                        >
+                            <!-- Artwork -->
+                            <div
+                                class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0"
+                                style="background: rgba(99,102,241,0.1)"
+                            >
+                                {#if result.artworkUrl}
+                                    <img
+                                        src={result.artworkUrl}
+                                        alt="Cover art"
+                                        class="w-full h-full object-cover"
+                                    />
+                                {:else}
+                                    <div
+                                        class="w-full h-full flex items-center justify-center"
+                                    >
+                                        <span
+                                            class="material-symbols-rounded text-[28px] text-white/20"
+                                            >album</span
+                                        >
+                                    </div>
+                                {/if}
+                            </div>
+
+                            <!-- Info -->
+                            <div class="flex-1 min-w-0 flex flex-col gap-0.5">
+                                <div
+                                    class="flex items-start justify-between gap-2"
+                                >
+                                    <p
+                                        class="text-sm font-semibold text-white truncate"
+                                    >
+                                        {result.title}
+                                    </p>
+                                    <span
+                                        class="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                                        style="background: rgba(99,102,241,0.2); color: rgba(180,182,255,1)"
+                                    >
+                                        {result.score}%
+                                    </span>
+                                </div>
+                                <p class="text-xs text-white/60 truncate">
+                                    {result.artist}
+                                </p>
+                                {#if result.album}
+                                    <p class="text-xs text-white/40 truncate">
+                                        {result.album}{result.year
+                                            ? ` · ${result.year}`
+                                            : ""}
+                                    </p>
+                                {/if}
+                                {#if result.label}
+                                    <p class="text-xs text-white/30">
+                                        {result.label}
+                                    </p>
+                                {/if}
+
+                                <button
+                                    onclick={() => applyIdentification(result)}
+                                    disabled={applyingResult === result.mbid}
+                                    class="mt-2 self-start flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 disabled:opacity-50"
+                                    style="background: var(--hap-primary,#6467f2); color: white"
+                                    aria-label="Apply this identification"
+                                >
+                                    {#if applyingResult === result.mbid}
+                                        <span
+                                            class="material-symbols-rounded text-[14px] animate-spin"
+                                            >autorenew</span
+                                        >
+                                    {:else}
+                                        <span
+                                            class="material-symbols-rounded text-[14px]"
+                                            >check</span
+                                        >
+                                    {/if}
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+                    {/each}
+                {/if}
+            </div>
+        </div>
+    </div>
+{/if}
