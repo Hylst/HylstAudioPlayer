@@ -403,6 +403,109 @@ self.onmessage = async (event: any) => {
             }
             break;
 
+        case 'GET_FAVORITES':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const result: any[] = [];
+                db.exec({
+                    sql: `SELECT t.* FROM tracks t
+                          JOIN favorites f ON t.id = f.track_id
+                          ORDER BY f.date_added DESC`,
+                    rowMode: 'object',
+                    callback: (row: any) => {
+                        if (row.keywords) { try { row.keywords = JSON.parse(row.keywords); } catch { row.keywords = []; } }
+                        else row.keywords = [];
+                        result.push(row);
+                    }
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'ADD_FAVORITE':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                db.exec({
+                    sql: 'INSERT OR IGNORE INTO favorites (track_id, date_added) VALUES (?, ?)',
+                    bind: [payload.trackId, Date.now()]
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'REMOVE_FAVORITE':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                db.exec({
+                    sql: 'DELETE FROM favorites WHERE track_id = ?',
+                    bind: [payload.trackId]
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'IS_FAVORITE':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const count = db.selectValue('SELECT COUNT(*) FROM favorites WHERE track_id = ?', [payload.trackId]) as number;
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: count > 0 } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'GET_FAVORITE_IDS':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                const result: number[] = [];
+                db.exec({
+                    sql: 'SELECT track_id FROM favorites',
+                    rowMode: 'object',
+                    callback: (row: any) => { result.push(row.track_id); }
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'RENAME_PLAYLIST':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                db.exec({
+                    sql: 'UPDATE playlists SET name = ?, date_modified = ? WHERE id = ? AND is_favorites = 0',
+                    bind: [payload.name, Date.now(), payload.id]
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
         default:
             log('Unknown message type:', type);
     }

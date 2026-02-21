@@ -2,6 +2,7 @@
     import { page } from "$app/stores";
     import { db } from "$lib/db/database.svelte";
     import { goto } from "$app/navigation";
+    import { writeTagsToFile } from "$lib/fs/tagWriter";
     import type { Track } from "$lib/types";
 
     // ─── State ────────────────────────────────────────────────────────────────────
@@ -10,6 +11,8 @@
     let saving = $state(false);
     let saveError = $state<string | null>(null);
     let saveSuccess = $state(false);
+    let fileWriteSuccess = $state(false);
+    let fileWriteError = $state<string | null>(null);
 
     // Editable form fields (separate from track to allow cancel)
     let form = $state({
@@ -108,34 +111,67 @@
         if (!track) return;
         saving = true;
         saveError = null;
+        fileWriteError = null;
+        fileWriteSuccess = false;
+
+        const fields: Partial<Track> = {
+            title: form.title || track.title,
+            artist: form.artist || track.artist,
+            album: form.album || track.album,
+            album_artist: form.album_artist || undefined,
+            genre: form.genre || undefined,
+            year: form.year !== "" ? Number(form.year) : undefined,
+            track_number:
+                form.track_number !== ""
+                    ? Number(form.track_number)
+                    : undefined,
+            composer: form.composer || undefined,
+            mood: form.mood || undefined,
+            comment: form.comment || undefined,
+            lyrics: form.lyrics || undefined,
+            bpm: form.bpm !== "" ? Number(form.bpm) : undefined,
+            label: form.label || undefined,
+            isrc: form.isrc || undefined,
+        };
 
         try {
-            const fields: Partial<Track> = {
-                title: form.title || track.title,
-                artist: form.artist || track.artist,
-                album: form.album || track.album,
-                album_artist: form.album_artist || undefined,
-                genre: form.genre || undefined,
-                year: form.year !== "" ? Number(form.year) : undefined,
-                track_number:
-                    form.track_number !== ""
-                        ? Number(form.track_number)
-                        : undefined,
-                composer: form.composer || undefined,
-                mood: form.mood || undefined,
-                comment: form.comment || undefined,
-                lyrics: form.lyrics || undefined,
-                bpm: form.bpm !== "" ? Number(form.bpm) : undefined,
-                label: form.label || undefined,
-                isrc: form.isrc || undefined,
-            };
-
+            // 1 — Save to SQLite database
             await db.updateTrack(track.id, fields);
             saveSuccess = true;
+
+            // 2 — Write tags back to the actual audio file
+            const writeResult = await writeTagsToFile(track.file_path, {
+                title: fields.title,
+                artist: fields.artist,
+                album: fields.album,
+                album_artist: fields.album_artist,
+                genre: fields.genre,
+                year: fields.year,
+                track_number: fields.track_number,
+                composer: fields.composer,
+                comment: fields.comment,
+                lyrics: fields.lyrics,
+                bpm: fields.bpm,
+                label: fields.label,
+                isrc: fields.isrc,
+                mood: fields.mood,
+            });
+
+            if (writeResult.success) {
+                fileWriteSuccess = true;
+            } else {
+                // Non-blocking — DB was saved, just inform about file
+                fileWriteError =
+                    writeResult.error ??
+                    `${writeResult.format.toUpperCase()} file write not supported`;
+            }
+
             setTimeout(() => {
                 saveSuccess = false;
+                fileWriteSuccess = false;
+                fileWriteError = null;
                 goto(`/track/${track!.id}`);
-            }, 800);
+            }, 2000);
         } catch (err: unknown) {
             saveError = err instanceof Error ? err.message : "Save failed";
         } finally {
@@ -144,6 +180,8 @@
     }
 
     // Field config for the form grid
+    // NOTE: 'lyrics' and 'comment' are rendered as textarea, others as input
+    const multilineKeys = new Set(["lyrics", "comment"]);
     const textFields = [
         { key: "title", label: "Title", icon: "music_note" },
         { key: "artist", label: "Artist", icon: "person" },
@@ -155,6 +193,7 @@
         { key: "isrc", label: "ISRC", icon: "qr_code" },
         { key: "mood", label: "Mood", icon: "mood" },
         { key: "comment", label: "Comment", icon: "comment" },
+        { key: "lyrics", label: "Lyrics", icon: "lyrics" },
     ] as const;
 
     const numberFields = [
@@ -224,6 +263,41 @@
             {saving ? "Saving…" : saveSuccess ? "Saved!" : "Save"}
         </button>
     </header>
+
+    <!-- ─── Status banners ─────────────────────────────────────────────────── -->
+    {#if saveError}
+        <div
+            class="mx-5 mt-3 flex items-center gap-2 px-4 py-3 rounded-2xl text-red-300 text-sm font-medium"
+            style="background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.25)"
+        >
+            <span class="material-symbols-rounded text-[18px] text-red-400"
+                >error</span
+            >
+            {saveError}
+        </div>
+    {/if}
+    {#if fileWriteError}
+        <div
+            class="mx-5 mt-3 flex items-center gap-2 px-4 py-3 rounded-2xl text-amber-300 text-sm font-medium"
+            style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.25)"
+        >
+            <span class="material-symbols-rounded text-[18px] text-amber-400"
+                >info</span
+            >
+            <span>{fileWriteError}</span>
+        </div>
+    {/if}
+    {#if fileWriteSuccess}
+        <div
+            class="mx-5 mt-3 flex items-center gap-2 px-4 py-3 rounded-2xl text-emerald-300 text-sm font-medium"
+            style="background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25)"
+        >
+            <span class="material-symbols-rounded text-[18px] text-emerald-400"
+                >check_circle</span
+            >
+            Saved to database and audio file ✓
+        </div>
+    {/if}
 
     {#if loading}
         <div class="px-5 pt-8 flex flex-col gap-4 animate-pulse">
@@ -320,7 +394,7 @@
                                 >
                                     {field.label}
                                 </label>
-                                {#if field.key === "lyrics" || field.key === "comment"}
+                                {#if multilineKeys.has(field.key)}
                                     <textarea
                                         id="field-{field.key}"
                                         bind:value={form[field.key]}

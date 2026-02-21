@@ -298,3 +298,15 @@
         {/if}
     </main>
 </div>
+
+<!-- ─── Context Menu (rendered at root so it can escape overflow clipping) ─── -->
+{#if selectedTrack}
+    <TrackContextMenu
+        track={selectedTrack}
+        bind:show={showMenu}
+        x={menuX}
+        y={menuY}
+        trackDetailHref="/track/{selectedTrack.id}"
+        trackEditHref="/track/{selectedTrack.id}/edit"
+    />
+{/if}

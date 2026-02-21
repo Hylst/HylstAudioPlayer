@@ -191,8 +191,27 @@ class PlayerStore {
     }
 
     addToQueue(track: Track) {
-        this.queue.push(track);
+        this.queue = [...this.queue, track];
     }
+
+    /** Insert track immediately after the currently playing track (Play Next) */
+    addToQueueNext(track: Track) {
+        const arr = [...this.queue];
+        const insertAt = this.queueIndex + 1;
+        arr.splice(insertAt, 0, track);
+        this.queue = arr;
+    }
+
+    /** Replace queue with a new list and start playing from the given index */
+    async setQueue(tracks: Track[], startIndex: number = 0) {
+        await this.playFromList(tracks, startIndex);
+    }
+
+    clearQueue() {
+        this.queue = [];
+        this.queueIndex = 0;
+    }
+
 
     private startTimer() {
         this.stopTimer();

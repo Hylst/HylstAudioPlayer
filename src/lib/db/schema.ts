@@ -66,8 +66,13 @@ CREATE TABLE IF NOT EXISTS playlists (
   date_created    DATETIME DEFAULT CURRENT_TIMESTAMP,
   date_modified   DATETIME,
   is_smart        BOOLEAN DEFAULT 0,
+  is_favorites    BOOLEAN DEFAULT 0,
   smart_criteria  TEXT  -- JSON SQL-like criteria
 );
+
+-- Seed the built-in Favorites playlist (id=1)
+INSERT OR IGNORE INTO playlists (id, name, description, is_favorites)
+  VALUES (1, 'Favorites', 'Your favorite tracks', 1);
 
 CREATE TABLE IF NOT EXISTS playlist_tracks (
   playlist_id     INTEGER REFERENCES playlists(id) ON DELETE CASCADE,
@@ -119,7 +124,7 @@ END;
  * Current User Version of the database (for migrations).
  * Increment this number when adding new migrations.
  */
-export const CURRENT_DB_VERSION = 2;
+export const CURRENT_DB_VERSION = 3;
 
 /**
  * Type guard to check if a DB row is a Track.

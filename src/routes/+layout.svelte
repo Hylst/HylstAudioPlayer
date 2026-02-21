@@ -14,6 +14,7 @@
 		{ icon: "home", label: "Home", href: "/" },
 		{ icon: "search", label: "Search", href: "/search" },
 		{ icon: "library_music", label: "Library", href: "/library" },
+		{ icon: "queue_music", label: "Playlists", href: "/playlists" },
 		{ icon: "person", label: "Profile", href: "/profile" },
 		{ icon: "info", label: "About", href: "/about" },
 	] as const;
@@ -28,10 +29,26 @@
 		if (audioWarmed) return;
 		audioWarmed = true;
 		try {
-			// Access the engine's AudioContext and resume it preemptively
 			(player as any).engine?.context?.resume?.();
 		} catch {}
 	}
+
+	// Register warm on first user interaction via window (avoids a11y div-click violation)
+	$effect(() => {
+		const handler = () => warmAudio();
+		window.addEventListener("click", handler, {
+			once: true,
+			passive: true,
+		});
+		window.addEventListener("touchstart", handler, {
+			once: true,
+			passive: true,
+		});
+		return () => {
+			window.removeEventListener("click", handler);
+			window.removeEventListener("touchstart", handler);
+		};
+	});
 
 	theme.init();
 

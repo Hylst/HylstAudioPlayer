@@ -4,12 +4,14 @@
     import { formatTime } from "$lib/utils/format";
 
     // ─── Visualizer Mode ────────────────────────────────────────────────────────
-    type VisMode = "bars" | "circular" | "scope";
+    type VisMode = "bars" | "circular" | "scope" | "vu";
     let mode = $state<VisMode>("bars");
 
     // ─── Canvas refs ─────────────────────────────────────────────────────────────
     let canvas = $state<HTMLCanvasElement | null>(null);
     let vuCanvas = $state<HTMLCanvasElement | null>(null);
+    let milkCanvas = $state<HTMLCanvasElement | null>(null);
+    let milkContainer = $state<HTMLDivElement | null>(null);
 
     // ─── VU peak hold ────────────────────────────────────────────────────────────
     let peakL = $state(0);
@@ -256,9 +258,285 @@
         ctx.shadowBlur = 0;
     }
 
-    function animate() {
+    // ─── Milkdrop Plasma + Particles ─────────────────────────────────────────────
+    interface Particle {
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        r: number;
+        hue: number;
+        alpha: number;
+        life: number;
+    }
+    const particles: Particle[] = [];
+    const MAX_PARTICLES = 120;
+    let plasmaTime = 0;
+
+    function spawnParticles(W: number, H: number, energy: number) {
+        const count = Math.floor(energy * 4);
+        for (let i = 0; i < count && particles.length < MAX_PARTICLES; i++) {
+            particles.push({
+                x: Math.random() * W,
+                y: Math.random() * H,
+                vx: (Math.random() - 0.5) * 1.5 * (1 + energy * 3),
+                vy: (Math.random() - 0.5) * 1.5 * (1 + energy * 3),
+                r: 2 + Math.random() * 6 * energy,
+                hue: 220 + Math.random() * 120, // indigo → pink
+                alpha: 0.6 + Math.random() * 0.4,
+                life: 0.8 + Math.random() * 1.5,
+            });
+        }
+    }
+
+    function drawMilkdrop(
+        ctx: CanvasRenderingContext2D,
+        W: number,
+        H: number,
+        freq: Uint8Array<ArrayBuffer>,
+        level: number,
+        dt: number,
+    ) {
+        plasmaTime += dt;
+        const energy = Math.min(1, level * 2.5);
+
+        // ── 1. Plasma field (offline pixel operations via ImageData) ──────────────
+        // Use a downscaled offscreen bitmap for performance, then scale up.
+        const PW = Math.ceil(W / 3);
+        const PH = Math.ceil(H / 3);
+        const imgData = ctx.createImageData(PW, PH);
+        const d = imgData.data;
+
+        // Average energy across low / mid / high frequency bands
+        const freqLen = freq.length;
+        let bass = 0,
+            mid = 0,
+            high = 0;
+        for (let i = 0; i < freqLen; i++) {
+            const v = freq[i] / 255;
+            if (i < freqLen * 0.1) bass += v;
+            else if (i < freqLen * 0.5) mid += v;
+            else high += v;
+        }
+        bass /= freqLen * 0.1;
+        mid /= freqLen * 0.4;
+        high /= freqLen * 0.5;
+
+        const t = plasmaTime;
+        for (let y = 0; y < PH; y++) {
+            for (let x = 0; x < PW; x++) {
+                const px = x / PW;
+                const py = y / PH;
+                // Plasma: sum of shifted sine waves modulated by audio bands
+                const v =
+                    Math.sin(px * 8 + t * 0.4 + bass * 6) +
+                    Math.sin(py * 8 - t * 0.35 + mid * 5) +
+                    Math.sin((px + py) * 6 + t * 0.3 + high * 4) +
+                    Math.sin(
+                        Math.sqrt(((px - 0.5) ** 2 + (py - 0.5) ** 2) * 12) *
+                            3 -
+                            t * 0.5,
+                    );
+
+                // Map v (–4 to +4) → hue (220°–360°+)
+                const norm = (v + 4) / 8;
+                const hue = (220 + norm * 150 + t * 15) % 360;
+                const sat = 70 + energy * 30;
+                const lig = 8 + norm * 20 + energy * 14;
+                const alpha = 0.35 + energy * 0.4;
+
+                // Fast HSL→RGB approximation
+                const h = hue / 60;
+                const c = ((1 - Math.abs((2 * lig) / 100 - 1)) * sat) / 100;
+                const x2 = c * (1 - Math.abs((h % 2) - 1));
+                const m = lig / 100 - c / 2;
+                let r = 0,
+                    g = 0,
+                    b = 0;
+                if (h < 1) {
+                    r = c;
+                    g = x2;
+                } else if (h < 2) {
+                    r = x2;
+                    g = c;
+                } else if (h < 3) {
+                    g = c;
+                    b = x2;
+                } else if (h < 4) {
+                    g = x2;
+                    b = c;
+                } else if (h < 5) {
+                    r = x2;
+                    b = c;
+                } else {
+                    r = c;
+                    b = x2;
+                }
+
+                const idx = (y * PW + x) * 4;
+                d[idx] = Math.round((r + m) * 255);
+                d[idx + 1] = Math.round((g + m) * 255);
+                d[idx + 2] = Math.round((b + m) * 255);
+                d[idx + 3] = Math.round(alpha * 255);
+            }
+        }
+
+        // Draw plasma scaled up to fill canvas
+        const tmpCanvas = document.createElement("canvas");
+        tmpCanvas.width = PW;
+        tmpCanvas.height = PH;
+        const tmpCtx = tmpCanvas.getContext("2d")!;
+        tmpCtx.putImageData(imgData, 0, 0);
+        ctx.save();
+        ctx.globalCompositeOperation = "source-over";
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "low";
+        ctx.drawImage(tmpCanvas, 0, 0, W, H);
+        ctx.restore();
+
+        // ── 2. Frequency ribbons ─────────────────────────────────────────────────
+        // Draw translucent frequency arcs layered over the plasma
+        const RIBBON_BANDS = 32;
+        ctx.save();
+        for (let i = 0; i < RIBBON_BANDS; i++) {
+            const binIdx = Math.floor((i / RIBBON_BANDS) * freqLen * 0.7);
+            const v = freq[binIdx] / 255;
+            smoothed[i] = smoothed[i] * SMOOTH + v * (1 - SMOOTH);
+            const bh = smoothed[i] * H * 0.35;
+            const bx = (i / RIBBON_BANDS) * W;
+            const bw = W / RIBBON_BANDS - 1;
+            const hue2 = (240 + i * 4 + t * 20) % 360;
+            ctx.fillStyle = `hsla(${hue2},90%,65%,${0.12 + smoothed[i] * 0.4})`;
+            if (smoothed[i] > 0.5) {
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = `hsla(${hue2},90%,65%,0.5)`;
+            } else ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.roundRect(bx, H - bh, bw, bh, 3);
+            ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        // ── 3. Particles ─────────────────────────────────────────────────────────
+        spawnParticles(W, H, energy);
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= dt * 0.7;
+            p.alpha = Math.max(0, p.alpha - dt * 0.4);
+            if (p.life <= 0 || p.alpha <= 0) {
+                particles.splice(i, 1);
+                continue;
+            }
+            const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+            grd.addColorStop(0, `hsla(${p.hue},90%,75%,${p.alpha})`);
+            grd.addColorStop(1, `hsla(${p.hue},90%,75%,0)`);
+            ctx.save();
+            ctx.globalCompositeOperation = "screen";
+            if (energy > 0.5) {
+                ctx.shadowBlur = 14;
+                ctx.shadowColor = `hsla(${p.hue},90%,65%,0.8)`;
+            }
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = grd;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        // ── 4. Large stereo VU meter overlay ─────────────────────────────────────
+        const VU_H = 56;
+        const VU_Y = H - VU_H - 16;
+        const VU_X = 16;
+        const VU_W = W - 32;
+        const SEGS = 40;
+        const segW2 = VU_W / (SEGS + 0.5);
+        const lv = Math.min(1, level * 1.5);
+        const rv = Math.min(1, level * 1.35);
+        if (lv >= peakLHold) {
+            peakLHold = lv;
+            peakLTimer = performance.now() + PEAK_HOLD_MS;
+        }
+        if (performance.now() > peakLTimer)
+            peakLHold = Math.max(0, peakLHold - 0.008);
+        if (rv >= peakRHold) {
+            peakRHold = rv;
+            peakRTimer = performance.now() + PEAK_HOLD_MS;
+        }
+        if (performance.now() > peakRTimer)
+            peakRHold = Math.max(0, peakRHold - 0.008);
+        peakL = peakLHold;
+        peakR = peakRHold;
+
+        const vuBarH = (VU_H - 6) / 2;
+        ctx.save();
+        // VU background card
+        ctx.fillStyle = "rgba(5,5,15,0.6)";
+        ctx.beginPath();
+        ctx.roundRect(VU_X - 8, VU_Y - 8, VU_W + 16, VU_H + 16, 14);
+        ctx.fill();
+        for (let ch = 0; ch < 2; ch++) {
+            const val = ch === 0 ? lv : rv;
+            const peak = ch === 0 ? peakLHold : peakRHold;
+            const vy = VU_Y + ch * (vuBarH + 6);
+            // Channel label
+            ctx.fillStyle =
+                ch === 0 ? "rgba(100,103,242,0.7)" : "rgba(168,85,247,0.7)";
+            ctx.font = "bold 9px sans-serif";
+            ctx.fillText(ch === 0 ? "L" : "R", VU_X - 2, vy + vuBarH - 2);
+            for (let s = 0; s < SEGS; s++) {
+                const threshold = s / SEGS;
+                const lit = threshold < val;
+                const isPeak = Math.abs(threshold - peak) < 1.5 / SEGS;
+                let color: string;
+                if (s < SEGS * 0.65)
+                    color = lit
+                        ? "rgba(34,197,94,0.95)"
+                        : "rgba(34,197,94,0.08)";
+                else if (s < SEGS * 0.85)
+                    color = lit
+                        ? "rgba(234,179,8,0.95)"
+                        : "rgba(234,179,8,0.08)";
+                else
+                    color = lit
+                        ? "rgba(239,68,68,0.98)"
+                        : "rgba(239,68,68,0.08)";
+                if (isPeak && peak > 0.04) {
+                    color =
+                        s >= SEGS * 0.85
+                            ? "rgba(255,100,100,1)"
+                            : s >= SEGS * 0.65
+                              ? "rgba(255,230,0,1)"
+                              : "rgba(100,255,140,1)";
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = color;
+                } else ctx.shadowBlur = 0;
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.roundRect(
+                    VU_X + 10 + s * (segW2 + 0.5),
+                    vy,
+                    segW2 - 1,
+                    vuBarH,
+                    2,
+                );
+                ctx.fill();
+            }
+        }
+        ctx.shadowBlur = 0;
+        ctx.restore();
+    }
+
+    let lastRafTime = 0;
+
+    function animate(now: number = 0) {
         if (!canvas || !vuCanvas) return;
         rafId = requestAnimationFrame(animate);
+        const dt = Math.min((now - (lastRafTime || now)) / 1000, 0.05);
+        lastRafTime = now;
 
         const vis = player.visualizer;
         if (!vis || !vis.getFrequencyData) return;
@@ -277,13 +555,16 @@
             if (mode === "bars") drawBars(ctx, W, H, freq);
             else if (mode === "circular") drawCircular(ctx, W, H, freq);
             else if (mode === "scope") drawScope(ctx, W, H, time);
+            else if (mode === "vu") drawMilkdrop(ctx, W, H, freq, level, dt);
         }
 
-        // VU canvas
-        const vctx = vuCanvas.getContext("2d");
-        if (vctx) {
-            vctx.clearRect(0, 0, vuCanvas.width, vuCanvas.height);
-            drawVU(vctx, vuCanvas.width, vuCanvas.height, level);
+        // Mini VU canvas (only in non-vu modes)
+        if (mode !== "vu") {
+            const vctx = vuCanvas.getContext("2d");
+            if (vctx) {
+                vctx.clearRect(0, 0, vuCanvas.width, vuCanvas.height);
+                drawVU(vctx, vuCanvas.width, vuCanvas.height, level);
+            }
         }
     }
 
@@ -312,6 +593,7 @@
         { id: "bars", icon: "equalizer", label: "Bars" },
         { id: "circular", icon: "blur_circular", label: "Circular" },
         { id: "scope", icon: "show_chart", label: "Scope" },
+        { id: "vu", icon: "graphic_eq", label: "VU" },
     ];
 </script>
 
@@ -442,31 +724,42 @@
         {/if}
     </div>
 
-    <!-- ─── VU Meter ────────────────────────────────────────────────────────── -->
-    <div
-        class="shrink-0 px-5 pt-3 pb-2"
-        style="background: rgba(5,5,15,0.5); backdrop-filter: blur(20px)"
-    >
-        <div class="flex items-center gap-3">
-            <span
-                class="text-[10px] font-bold text-white/30 uppercase tracking-wider w-3"
-                >L</span
-            >
-            <div class="flex-1">
-                <canvas
-                    bind:this={vuCanvas}
-                    width={600}
-                    height={44}
-                    class="w-full h-[44px]"
-                    aria-hidden="true"
-                ></canvas>
+    <!-- ─── VU Meter strip (hidden when VU tab handles it in-canvas) ───────── -->
+    {#if mode !== "vu"}
+        <div
+            class="shrink-0 px-5 pt-3 pb-2"
+            style="background: rgba(5,5,15,0.5); backdrop-filter: blur(20px)"
+        >
+            <div class="flex items-center gap-3">
+                <span
+                    class="text-[10px] font-bold text-white/30 uppercase tracking-wider w-3"
+                    >L</span
+                >
+                <div class="flex-1">
+                    <canvas
+                        bind:this={vuCanvas}
+                        width={600}
+                        height={44}
+                        class="w-full h-[44px]"
+                        aria-hidden="true"
+                    ></canvas>
+                </div>
+                <span
+                    class="text-[10px] font-bold text-white/30 uppercase tracking-wider w-3"
+                    >R</span
+                >
             </div>
-            <span
-                class="text-[10px] font-bold text-white/30 uppercase tracking-wider w-3"
-                >R</span
-            >
         </div>
-    </div>
+    {:else}
+        <!-- Still bind vuCanvas but hidden (needed for peak state) -->
+        <canvas
+            bind:this={vuCanvas}
+            width={1}
+            height={1}
+            class="sr-only"
+            aria-hidden="true"
+        ></canvas>
+    {/if}
 
     <!-- ─── Mini Controls ───────────────────────────────────────────────────── -->
     {#if player.currentTrack}

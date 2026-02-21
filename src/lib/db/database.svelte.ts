@@ -143,7 +143,15 @@ export class DatabaseManager {
     /** Fetch a single track with all extended tags (keywords hydrated from JSON). */
     async getTrackById(id: number): Promise<Track | null> {
         const result = await this.send('GET_TRACK_BY_ID', { id });
-        return (result?.result as Track) ?? null;
+        // Note: send() already resolves with payload.result from the worker CMD_SUCCESS handler.
+        // The worker for GET_TRACK_BY_ID sends { result: track } in the payload,
+        // so payload.result IS the track object. No extra .result dereference needed.
+        if (!result) return null;
+        // Handle both shapes: direct Track object OR { result: Track } wrapper
+        const track = (result && typeof result === 'object' && 'id' in result)
+            ? result as Track
+            : ((result as any)?.result as Track ?? null);
+        return track;
     }
 
     /**
@@ -228,6 +236,45 @@ export class DatabaseManager {
 
     async getTracksByPlaylist(playlistId: number): Promise<Track[]> {
         return this.send('GET_PLAYLIST_TRACKS', { playlistId });
+    }
+
+    async renamePlaylist(id: number, name: string): Promise<void> {
+        await this.send('RENAME_PLAYLIST', { id, name });
+        this.lastUpdate++;
+    }
+
+    // ─── Favorites ─────────────────────────────────────────────────────────────
+
+    async addFavorite(trackId: number): Promise<void> {
+        await this.send('ADD_FAVORITE', { trackId });
+        this.lastUpdate++;
+    }
+
+    async removeFavorite(trackId: number): Promise<void> {
+        await this.send('REMOVE_FAVORITE', { trackId });
+        this.lastUpdate++;
+    }
+
+    async isFavorite(trackId: number): Promise<boolean> {
+        return this.send('IS_FAVORITE', { trackId });
+    }
+
+    async getFavorites(): Promise<Track[]> {
+        try {
+            const result = await this.send('GET_FAVORITES', {});
+            return Array.isArray(result) ? result : [];
+        } catch {
+            return [];
+        }
+    }
+
+    async getFavoriteIds(): Promise<number[]> {
+        try {
+            const result = await this.send('GET_FAVORITE_IDS', {});
+            return Array.isArray(result) ? result : [];
+        } catch {
+            return [];
+        }
     }
 }
 

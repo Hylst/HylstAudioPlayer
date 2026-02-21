@@ -52,6 +52,43 @@ export function migrateDatabase(db: any) {
             }
         }
 
+        // v2 → v3: playlists, playlist_tracks, favorites tables
+        if (version < 3) {
+            console.log('[Migration] v2→v3: Adding playlists, playlist_tracks, favorites tables...');
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS playlists (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name            TEXT NOT NULL,
+                    description     TEXT,
+                    date_created    DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    date_modified   DATETIME,
+                    is_smart        BOOLEAN DEFAULT 0,
+                    is_favorites    BOOLEAN DEFAULT 0
+                );
+            `);
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS playlist_tracks (
+                    playlist_id     INTEGER REFERENCES playlists(id) ON DELETE CASCADE,
+                    track_id        INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+                    position        INTEGER NOT NULL,
+                    PRIMARY KEY (playlist_id, track_id)
+                );
+            `);
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS favorites (
+                    track_id        INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+                    date_added      DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+            // Seed a "Favorites" built-in playlist
+            try {
+                const existing = db.selectValue('SELECT COUNT(*) FROM playlists WHERE is_favorites = 1');
+                if (existing === 0) {
+                    db.exec("INSERT INTO playlists (name, description, is_favorites) VALUES ('Favorites', 'Your favorite tracks', 1)");
+                }
+            } catch { }
+        }
+
         db.exec(`PRAGMA user_version = ${CURRENT_DB_VERSION}`);
         console.log('[Migration] Done.');
     } else {
