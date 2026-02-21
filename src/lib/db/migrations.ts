@@ -119,6 +119,34 @@ export function migrateDatabase(db: any) {
             }
         }
 
+        // v5 → v6: Safety net — ensure all v2 extended columns exist.
+        // Needed when a DB was created from an old schema.ts DDL that was missing
+        // these columns, but user_version was already at 5 (skipping the v1→v2 migration).
+        if (version < 6) {
+            console.log('[Migration] v5→v6: Ensuring all extended track columns exist...');
+            const ensureColumns: [string, string][] = [
+                ['composer', 'TEXT'],
+                ['lyrics', 'TEXT'],
+                ['isrc', 'TEXT'],
+                ['label', 'TEXT'],
+                ['comment', 'TEXT'],
+                ['mood', 'TEXT'],
+                ['replaygain_track_db', 'REAL'],
+                ['keywords', 'TEXT'],
+                ['music_brainz_id', 'TEXT'],
+                ['acoustid_id', 'TEXT'],
+                ['bpm', 'REAL'],
+            ];
+            for (const [col, type] of ensureColumns) {
+                try {
+                    db.exec(`ALTER TABLE tracks ADD COLUMN ${col} ${type}`);
+                    console.log(`[Migration] v5→v6: Added column ${col}`);
+                } catch {
+                    // Column already exists — expected for most installations
+                }
+            }
+        }
+
         db.exec(`PRAGMA user_version = ${CURRENT_DB_VERSION}`);
         console.log('[Migration] Done.');
     } else {

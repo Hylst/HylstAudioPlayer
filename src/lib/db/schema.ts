@@ -132,7 +132,7 @@ END;
  * Current User Version of the database (for migrations).
  * Increment this number when adding new migrations.
  */
-export const CURRENT_DB_VERSION = 5;
+export const CURRENT_DB_VERSION = 6;
 
 /**
  * Type guard to check if a DB row is a Track.

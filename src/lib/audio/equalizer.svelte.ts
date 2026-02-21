@@ -1,6 +1,7 @@
-// src/lib/audio/equalizer.ts
+// src/lib/audio/equalizer.svelte.ts
 // Svelte 5 store — bridges the EQ UI in /settings to the AudioEngine's BiquadFilterNodes
 // Rule 2: Svelte 5 Runes only. Rule 3: strict TypeScript.
+// NOTE: must be .svelte.ts (not .ts) for $state rune support.
 
 import { player } from './player.svelte';
 
