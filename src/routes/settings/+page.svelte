@@ -582,6 +582,37 @@
                         Reset
                     </button>
                 </div>
+                <!-- Repair DB (nuclear reset) -->
+                <div
+                    class="flex items-center justify-between px-5 py-4 border-t"
+                    style="border-color: rgba(255,0,0,0.15)"
+                >
+                    <div>
+                        <div class="text-sm font-semibold text-red-300">
+                            Repair Database
+                        </div>
+                        <div class="text-xs text-white/30">
+                            Deletes &amp; recreates the DB — fixes scan failures
+                        </div>
+                    </div>
+                    <button
+                        class="px-3 py-1.5 rounded-full text-xs font-semibold text-red-300 hover:bg-red-500/15 transition-colors"
+                        aria-label="Repair database"
+                        onclick={async () => {
+                            if (
+                                !confirm(
+                                    "This will DELETE the entire database and rescan from scratch. Continue?",
+                                )
+                            )
+                                return;
+                            if (player.isPlaying) player.togglePlay();
+                            await db.nukeDatabase();
+                            setTimeout(() => location.reload(), 400);
+                        }}
+                    >
+                        Repair
+                    </button>
+                </div>
             </div>
         </section>
 

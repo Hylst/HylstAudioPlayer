@@ -111,15 +111,22 @@
     >
       <span class="material-symbols-rounded text-[26px]">settings</span>
     </a>
+    <a
+      href="/about"
+      class="flex items-center justify-center w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+      aria-label="About"
+    >
+      <span class="material-symbols-rounded text-[20px]">info</span>
+    </a>
 
-    <!-- Branding: gradient "Hylst" -->
+    <!-- Branding: gradient "Hylst Music Player" -->
     <h1
-      class="font-extrabold tracking-tight"
-      style="font-size: 1.45rem; letter-spacing: -0.03em;
+      class="font-extrabold tracking-tight flex-1 text-center"
+      style="font-size: 1.2rem; letter-spacing: -0.03em;
         background: linear-gradient(135deg, #fff 20%, rgba(99,102,241,0.85) 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
     >
-      Hylst
+      Hylst Music Player
     </h1>
 
     <a
@@ -153,7 +160,31 @@
       {/each}
     </div>
 
-    <!-- ─── Loading Skeleton ─── -->
+    <!-- ─── File Browser Shortcut ─── -->
+    <a
+      href="/browse"
+      class="flex items-center gap-3 px-4 py-3 mb-5 rounded-2xl transition-all hover:scale-[1.02] active:scale-95"
+      style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 0 20px -8px rgba(99,102,241,0.25)"
+    >
+      <span
+        class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+        style="background: linear-gradient(135deg,rgba(99,102,241,0.3),rgba(139,92,246,0.3))"
+      >
+        <span class="material-symbols-rounded text-[20px] text-indigo-300"
+          >folder_open</span
+        >
+      </span>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-white/90">Browse Files</div>
+        <div class="text-xs text-white/40">
+          Navigate your music folders directly
+        </div>
+      </div>
+      <span class="material-symbols-rounded text-[18px] text-white/30"
+        >chevron_right</span
+      >
+    </a>
+
     {#if loading}
       <div class="grid grid-cols-2 gap-4 pb-4">
         {#each Array(6) as _}
@@ -202,6 +233,14 @@
           >
           Add Folder
         </button>
+        <a
+          href="/browse"
+          class="px-6 py-3 rounded-full font-semibold text-sm text-white/70 flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+          style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1)"
+        >
+          <span class="material-symbols-rounded text-[20px]">folder_open</span>
+          Browse Files
+        </a>
       </div>
     {:else if activeFilter === "All"}
       <!-- ─── Track Grid ─── -->

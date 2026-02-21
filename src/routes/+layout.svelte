@@ -16,7 +16,6 @@
 		{ icon: "library_music", label: "Library", href: "/library" },
 		{ icon: "queue_music", label: "Playlists", href: "/playlists" },
 		{ icon: "person", label: "Profile", href: "/profile" },
-		{ icon: "info", label: "About", href: "/about" },
 	] as const;
 
 	let showVisualizer = $derived(!!player.currentTrack);

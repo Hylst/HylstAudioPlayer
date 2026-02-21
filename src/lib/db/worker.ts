@@ -551,15 +551,32 @@ self.onmessage = async (event: any) => {
                 return;
             }
             try {
-                // Disable FTS triggers temporarily by dropping and recreating FTS table,
-                // then delete tracks (no triggers fire on a cleared FTS).
-                // Step 1: Delete FTS content first (avoids trigger-on-delete trying to update a stale FTS)
-                db.exec('DELETE FROM tracks_fts');
-                // Step 2: Delete all user data
+                // Proper FTS5 protocol: use auxiliary command, NOT direct DELETE
+                // Direct DELETE on a content FTS table corrupts shadow tables.
+                db.exec("INSERT INTO tracks_fts(tracks_fts) VALUES('delete-all')");
+                // Now delete the actual data (triggers fire but FTS is already empty — no conflict)
                 db.exec('DELETE FROM favorites');
                 db.exec('DELETE FROM playlist_tracks');
                 db.exec('DELETE FROM tracks');
-                // Step 3: FTS is now empty and consistent — no rebuild needed (triggers will insert on next scan)
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'NUKE_DB':
+            // Nuclear reset: delete OPFS DB file and fully reinitialize.
+            // Use this when the DB schema / FTS is corrupted.
+            try {
+                if (db) { db.close(); db = undefined; }
+                const root = await navigator.storage.getDirectory();
+                try {
+                    await (root as any).removeEntry('hylst_audio_player.db');
+                    log('NUKE_DB: OPFS file deleted');
+                } catch (e) {
+                    log('NUKE_DB: OPFS file not found (already gone), continuing');
+                }
+                await initDB();
                 self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
             } catch (err: any) {
                 self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });

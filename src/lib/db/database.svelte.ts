@@ -258,6 +258,16 @@ export class DatabaseManager {
         this.lastUpdate++;
     }
 
+    /**
+     * Nuclear reset: deletes the OPFS SQLite file and re-initializes a fresh database.
+     * Use this when the DB is in an unrecoverable corrupt state.
+     * The caller should reload the page after this.
+     */
+    async nukeDatabase(): Promise<void> {
+        await this.send('NUKE_DB', {});
+        this.lastUpdate++;
+    }
+
     // ─── Favorites ─────────────────────────────────────────────────────────────
 
     async addFavorite(trackId: number): Promise<void> {
