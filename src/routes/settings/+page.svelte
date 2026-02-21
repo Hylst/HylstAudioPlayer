@@ -40,12 +40,13 @@
     });
 
     // Lazily resolved eq store instance
-    let eqStore: import("$lib/audio/equalizer").EqualizerStore | null = null;
+    let eqStore: import("$lib/audio/equalizer.svelte").EqualizerStore | null =
+        null;
 
     $effect(() => {
         if (typeof window === "undefined") return;
         // Lazy-load the eq+player module chain (creates AudioContext only in browser)
-        import("$lib/audio/equalizer").then(({ eq, EQ_PRESETS }) => {
+        import("$lib/audio/equalizer.svelte").then(({ eq, EQ_PRESETS }) => {
             eqStore = eq;
             eqPresets = { ...EQ_PRESETS };
             eqBands = [...eq.bands];
@@ -80,6 +81,17 @@
         }, 2000);
         return () => clearInterval(interval);
     });
+
+    // Auto-tag / metadata enrichment setting (persisted in localStorage)
+    let autoTagEnabled = $state(false);
+    $effect(() => {
+        if (typeof window === "undefined") return;
+        autoTagEnabled = localStorage.getItem("hap_autotag") === "1";
+    });
+    function toggleAutoTag(): void {
+        autoTagEnabled = !autoTagEnabled;
+        localStorage.setItem("hap_autotag", autoTagEnabled ? "1" : "0");
+    }
 </script>
 
 <!-- Ambient background -->
@@ -112,6 +124,60 @@
     </header>
 
     <main class="flex-1 pb-32 space-y-8 px-4 pt-6">
+        <!-- ─── Metadata / Auto-Tag ─── -->
+        <section>
+            <h2
+                class="text-xs font-bold uppercase tracking-widest text-white/40 mb-3 px-1"
+            >
+                Metadata Enrichment
+            </h2>
+            <div
+                class="rounded-2xl overflow-hidden"
+                style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07)"
+            >
+                <div class="flex items-center justify-between px-5 py-4">
+                    <div class="flex-1 min-w-0 pr-4">
+                        <p class="text-sm font-semibold text-white">
+                            Auto-tag missing metadata
+                        </p>
+                        <p class="text-xs text-white/40 mt-0.5 leading-relaxed">
+                            Automatically fetch missing album art, artist,
+                            album, and year from MusicBrainz &amp; Cover Art
+                            Archive after scanning. Free, no API key required.
+                        </p>
+                    </div>
+                    <button
+                        role="switch"
+                        aria-checked={autoTagEnabled}
+                        onclick={toggleAutoTag}
+                        class="flex-shrink-0 relative w-12 h-6 rounded-full transition-all duration-200"
+                        style={autoTagEnabled
+                            ? "background:var(--hap-primary,#6467f2)"
+                            : "background:rgba(255,255,255,0.12)"}
+                    >
+                        <span
+                            class="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200"
+                            style={autoTagEnabled
+                                ? "left: calc(100% - 1.375rem)"
+                                : "left: 0.125rem"}
+                        ></span>
+                    </button>
+                </div>
+                {#if autoTagEnabled}
+                    <div
+                        class="px-5 pb-4 text-xs text-white/30 border-t border-white/5 pt-3"
+                    >
+                        <span
+                            class="material-symbols-rounded text-[14px] align-middle text-emerald-400 mr-1"
+                            >check_circle</span
+                        >
+                        Active — tracks with missing data will be enriched in the
+                        background after each scan.
+                    </div>
+                {/if}
+            </div>
+        </section>
+
         <!-- ─── EQ Presets ─── -->
         <section>
             <h2

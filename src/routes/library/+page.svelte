@@ -1,6 +1,7 @@
 <script lang="ts">
     import { db } from "$lib/db/database.svelte";
     import { player } from "$lib/audio/player.svelte";
+    import { playlists } from "$lib/audio/playlists.svelte";
     import { fsManager } from "$lib/fs/fileSystemManager.svelte";
     import TrackContextMenu from "../../components/player/TrackContextMenu.svelte";
     import type { Track } from "$lib/types";
@@ -10,6 +11,9 @@
     let loading = $state(true);
     let sortBy = $state("date_added");
     let sortOrder = $state("DESC");
+    let favoriteTracks = $derived(
+        tracks.filter((t) => playlists.favoriteIds.has(t.id)),
+    );
 
     // Context Menu State
     let showMenu = $state(false);
@@ -198,6 +202,66 @@
                 </button>
             </div>
         {:else}
+            <!-- ─── Favorites Section ─── -->
+            {#if favoriteTracks.length > 0}
+                <section class="mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2
+                            class="text-sm font-bold text-white/60 uppercase tracking-wider flex items-center gap-2"
+                        >
+                            <span
+                                class="material-symbols-rounded text-[18px] text-rose-400"
+                                style="font-variation-settings: 'FILL' 1"
+                                >favorite</span
+                            >
+                            Favorites
+                        </h2>
+                        {#if playlists.favoritesPlaylist}
+                            <a
+                                href="/playlists/{playlists.favoritesPlaylist
+                                    .id}"
+                                class="text-xs text-white/30 hover:text-white/60 transition-colors"
+                                >See all</a
+                            >
+                        {/if}
+                    </div>
+                    <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                        {#each favoriteTracks as track}
+                            {@const isCurrent =
+                                player.currentTrack?.id === track.id}
+                            <button
+                                onclick={() => player.play(track)}
+                                class="flex-shrink-0 w-36 flex flex-col gap-1.5 p-2.5 rounded-xl text-left transition-all hover:bg-white/5 active:scale-[0.97]"
+                                style={isCurrent
+                                    ? "background:rgba(99,102,241,0.15)"
+                                    : ""}
+                            >
+                                <div
+                                    class="w-full aspect-square rounded-lg bg-white/5 flex items-center justify-center mb-1"
+                                >
+                                    <span
+                                        class="material-symbols-rounded text-3xl"
+                                        style="color: {isCurrent
+                                            ? 'var(--hap-primary,#6467f2)'
+                                            : 'rgba(255,255,255,0.15)'}"
+                                    >
+                                        {isCurrent ? "equalizer" : "music_note"}
+                                    </span>
+                                </div>
+                                <p
+                                    class="text-xs font-semibold text-white/85 truncate"
+                                >
+                                    {track.title ?? "Unknown"}
+                                </p>
+                                <p class="text-[10px] text-white/40 truncate">
+                                    {track.artist ?? ""}
+                                </p>
+                            </button>
+                        {/each}
+                    </div>
+                </section>
+            {/if}
+
             <!-- Track Table -->
             <div class="w-full">
                 <!-- Table Header (Hidden on small mobile) -->

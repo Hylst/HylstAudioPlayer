@@ -6,6 +6,7 @@
 
     let isDragging = $state(false);
     let dragTime = $state(0);
+    let showMenu = $state(false);
 
     function handleSeekStart() {
         isDragging = true;
@@ -85,12 +86,85 @@
         <button
             class="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors backdrop-blur-md"
             aria-label="More options"
+            onclick={() => (showMenu = !showMenu)}
         >
             <span class="material-symbols-rounded text-white/80 text-[24px]"
                 >more_horiz</span
             >
         </button>
     </div>
+
+    {#if showMenu}
+        <!-- ─── Track Options Sheet ─── -->
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <div
+            class="fixed inset-0 z-50"
+            onclick={() => (showMenu = false)}
+        ></div>
+        <div
+            class="fixed bottom-24 left-4 right-4 z-50 rounded-2xl overflow-hidden"
+            style="background: rgba(15,15,25,0.97); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -8px 40px rgba(0,0,0,0.6)"
+        >
+            {#if player.currentTrack}
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="font-semibold text-white text-sm truncate">
+                        {player.currentTrack.title ?? "Unknown"}
+                    </p>
+                    <p class="text-xs text-white/40 truncate mt-0.5">
+                        {player.currentTrack.artist ?? ""}
+                    </p>
+                </div>
+            {/if}
+            <div class="py-1">
+                <a
+                    href="/track/{player.currentTrack?.id}"
+                    onclick={() => (showMenu = false)}
+                    class="flex items-center gap-3 px-5 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors"
+                >
+                    <span
+                        class="material-symbols-rounded text-[20px] text-white/40"
+                        >info</span
+                    >
+                    Track Details
+                </a>
+                <button
+                    onclick={() => {
+                        player.addToQueue(player.currentTrack!);
+                        showMenu = false;
+                    }}
+                    class="w-full flex items-center gap-3 px-5 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors"
+                >
+                    <span
+                        class="material-symbols-rounded text-[20px] text-white/40"
+                        >playlist_add</span
+                    >
+                    Add to Queue
+                </button>
+                <button
+                    onclick={() => {
+                        playlists.toggleFavorite(player.currentTrack!.id);
+                        showMenu = false;
+                    }}
+                    class="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors"
+                    style={playlists.isFavorite(player.currentTrack?.id ?? -1)
+                        ? "color:#f43f5e"
+                        : "color:rgba(255,255,255,0.8)"}
+                >
+                    <span
+                        class="material-symbols-rounded text-[20px]"
+                        style="font-variation-settings: 'FILL' {playlists.isFavorite(
+                            player.currentTrack?.id ?? -1,
+                        )
+                            ? 1
+                            : 0}">favorite</span
+                    >
+                    {playlists.isFavorite(player.currentTrack?.id ?? -1)
+                        ? "Remove from Favorites"
+                        : "Add to Favorites"}
+                </button>
+            </div>
+        </div>
+    {/if}
 
     {#if player.currentTrack}
         <!-- ─── Album Art ─── -->

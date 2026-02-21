@@ -74,22 +74,25 @@ export class AudioEngine {
         if (!this.source) return;
         if (this.isPlaying) return;
 
-        // AudioBufferSourceNode can only play once — recreate from buffer on resume
         if (this.pauseTime > 0) {
+            // Resume: AudioBufferSourceNode is one-shot — must recreate from buffer
             const buffer = this.source.buffer;
             if (buffer) {
                 this.source.disconnect();
                 this.createSourceFromBuffer(buffer, this.pauseTime);
+                this.source!.start(0, this.pauseTime);
+                this.startTime = this.context.currentTime - this.pauseTime;
+                this.isPlaying = true;
+                this.source!.onended = () => { if (this.isPlaying) this.isPlaying = false; };
             }
+            return;
         }
 
-        this.source.start(0, this.pauseTime);
-        this.startTime = this.context.currentTime - this.pauseTime;
+        // First play from beginning
+        this.source.start(0, 0);
+        this.startTime = this.context.currentTime;
         this.isPlaying = true;
-
-        this.source.onended = () => {
-            if (this.isPlaying) this.isPlaying = false;
-        };
+        this.source.onended = () => { if (this.isPlaying) this.isPlaying = false; };
     }
 
     pause(): void {
