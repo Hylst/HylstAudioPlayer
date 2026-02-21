@@ -28,6 +28,7 @@
     // ─── Drag-to-reorder ────────────────────────────────────────────
     let dragFromIdx = $state<number | null>(null);
     let dragOverIdx = $state<number | null>(null);
+    let isDraggingAny = $derived(dragFromIdx !== null);
 
     // ─── More menu (per track) ──────────────────────────────────────
     let openMenuTrackId = $state<number | null>(null);
@@ -550,11 +551,20 @@
                         ondragend={onDragEnd}
                         role="listitem"
                     >
+                        {#if isDraggingAny}
+                            <!-- Transparent overlay blocks child pointer events during drag so ondrop fires on this div -->
+                            <div
+                                class="absolute inset-0 z-10"
+                                style="cursor:grabbing"
+                            ></div>
+                        {/if}
                         <!-- Drag handle -->
                         {#if !playlist?.is_favorites}
                             <span
                                 class="material-symbols-rounded text-[16px] text-white/20 flex-shrink-0 select-none"
-                                >drag_indicator</span
+                                style={isDraggingAny
+                                    ? "pointer-events:none"
+                                    : ""}>drag_indicator</span
                             >
                         {/if}
 
@@ -562,7 +572,9 @@
                         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                         <div
                             class="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                            style="background: rgba(255,255,255,0.05)"
+                            style="background: rgba(255,255,255,0.05); {isDraggingAny
+                                ? 'pointer-events:none'
+                                : ''}"
                             onclick={() => player.playFromList(tracks, i)}
                         >
                             {#if isCurrent}
@@ -587,6 +599,7 @@
                         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                         <div
                             class="flex-1 min-w-0 cursor-pointer"
+                            style={isDraggingAny ? "pointer-events:none" : ""}
                             onclick={() => player.playFromList(tracks, i)}
                         >
                             <h3

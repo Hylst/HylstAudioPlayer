@@ -42,6 +42,10 @@
     // Lazily resolved eq store instance
     let eqStore: import("$lib/audio/equalizer.svelte").EqualizerStore | null =
         null;
+    // Lazily resolved player store — same lazy load as eq to avoid SSR AudioContext
+    let playerStore:
+        | (typeof import("$lib/audio/player.svelte"))["player"]
+        | null = null;
 
     $effect(() => {
         if (typeof window === "undefined") return;
@@ -52,6 +56,9 @@
             eqBands = [...eq.bands];
             activePreset = eq.activePreset;
             preampGain = eq.preampGain;
+        });
+        import("$lib/audio/player.svelte").then(({ player }) => {
+            playerStore = player;
         });
     });
 
@@ -639,7 +646,8 @@
                                 return;
                             await db.resetLibrary();
                             // Stop playback for a clean UX before reload
-                            if (player.isPlaying) player.togglePlay();
+                            if (playerStore?.isPlaying)
+                                playerStore.togglePlay();
                             trackCount = 0;
                             // Reload to clear all in-memory state (queue, track list, etc.)
                             setTimeout(() => location.reload(), 300);
@@ -671,7 +679,8 @@
                                 )
                             )
                                 return;
-                            if (player.isPlaying) player.togglePlay();
+                            if (playerStore?.isPlaying)
+                                playerStore.togglePlay();
                             await db.nukeDatabase();
                             setTimeout(() => location.reload(), 400);
                         }}

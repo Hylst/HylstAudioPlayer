@@ -67,32 +67,40 @@ export class AudioEngine {
     }
 
     async play(): Promise<void> {
-        // Chrome autoplay policy: AudioContext starts suspended — must await resume
-        if (this.context.state === 'suspended') {
-            await this.context.resume();
-        }
         if (!this.source) return;
         if (this.isPlaying) return;
 
-        if (this.pauseTime > 0) {
-            // Resume: AudioBufferSourceNode is one-shot — must recreate from buffer
-            const buffer = this.source.buffer;
-            if (buffer) {
-                this.source.disconnect();
-                this.createSourceFromBuffer(buffer, this.pauseTime);
-                this.source!.start(0, this.pauseTime);
-                this.startTime = this.context.currentTime - this.pauseTime;
-                this.isPlaying = true;
-                this.source!.onended = () => { if (this.isPlaying) this.isPlaying = false; };
-            }
-            return;
-        }
-
-        // First play from beginning
-        this.source.start(0, 0);
-        this.startTime = this.context.currentTime;
+        // Guard BEFORE any await — prevents concurrent calls from both calling start()
         this.isPlaying = true;
-        this.source.onended = () => { if (this.isPlaying) this.isPlaying = false; };
+
+        try {
+            if (this.context.state === 'suspended') {
+                await this.context.resume();
+            }
+
+            if (this.pauseTime > 0) {
+                // Resume: AudioBufferSourceNode is one-shot — must recreate from buffer
+                const buffer = this.source.buffer;
+                if (buffer) {
+                    this.source.disconnect();
+                    this.createSourceFromBuffer(buffer, this.pauseTime);
+                    this.source!.start(0, this.pauseTime);
+                    this.startTime = this.context.currentTime - this.pauseTime;
+                    this.source!.onended = () => { if (this.isPlaying) this.isPlaying = false; };
+                } else {
+                    this.isPlaying = false; // nothing to play
+                }
+                return;
+            }
+
+            // First play from beginning
+            this.source.start(0, 0);
+            this.startTime = this.context.currentTime;
+            this.source.onended = () => { if (this.isPlaying) this.isPlaying = false; };
+        } catch (err) {
+            this.isPlaying = false;
+            throw err;
+        }
     }
 
     pause(): void {
