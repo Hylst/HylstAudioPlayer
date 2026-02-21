@@ -191,7 +191,7 @@
                     listening.
                 </p>
                 <button
-                    onclick={() => fsManager.selectRootFolder()}
+                    onclick={() => fsManager.addFolder()}
                     class="mt-4 px-8 py-3 rounded-full bg-white text-black font-bold transition-transform hover:scale-105"
                 >
                     Add Folder

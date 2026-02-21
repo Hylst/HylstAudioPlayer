@@ -22,6 +22,11 @@
 
     let showPlaylistSubmenu = $state(false);
 
+    // Smart submenu direction: open left if context menu is in the right half of screen
+    const submenuOpensLeft = $derived(
+        typeof window !== "undefined" && x > window.innerWidth / 2,
+    );
+
     // ─── Play Next ──────────────────────────────────────────────────────────────
     function playNext() {
         if (!track) return;
@@ -168,7 +173,10 @@
 
                 {#if showPlaylistSubmenu}
                     <div
-                        class="absolute left-full top-0 ml-1 w-56 glass-panel-strong rounded-2xl p-1.5 shadow-2xl"
+                        class="absolute top-0 w-56 glass-panel-strong rounded-2xl p-1.5 shadow-2xl"
+                        style={submenuOpensLeft
+                            ? "right: calc(100% + 4px)"
+                            : "left: calc(100% + 4px)"}
                         role="menu"
                         tabindex="-1"
                     >

@@ -89,6 +89,26 @@ export function migrateDatabase(db: any) {
             } catch { }
         }
 
+        // v3 → v4: File metadata columns
+        if (version < 4) {
+            console.log('[Migration] v3→v4: Adding file metadata columns...');
+            const v4Columns: [string, string][] = [
+                ['file_size', 'INTEGER'],
+                ['file_format', 'TEXT'],
+                ['codec', 'TEXT'],
+                ['codec_profile', 'TEXT'],
+                ['tag_types', 'TEXT'],
+                ['date_modified', 'INTEGER'],
+            ];
+            for (const [col, type] of v4Columns) {
+                try {
+                    db.exec(`ALTER TABLE tracks ADD COLUMN ${col} ${type}`);
+                } catch (e) {
+                    console.warn(`[Migration] Skipping ${col} (may already exist):`, e);
+                }
+            }
+        }
+
         db.exec(`PRAGMA user_version = ${CURRENT_DB_VERSION}`);
         console.log('[Migration] Done.');
     } else {

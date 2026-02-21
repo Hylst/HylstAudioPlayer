@@ -1,149 +1,181 @@
 // src/lib/fs/fileSystemManager.svelte.ts — File System Store
-// Coordinates directory selection and scanning.
+// Supports MULTIPLE root folders (stored as indexed array in idb-keyval).
 // Svelte 5 Runes.
 
 import { get, set } from 'idb-keyval';
 import { db } from '$lib/db/database.svelte';
-// import ScannerWorker from './scanner.worker?worker'; // Now using standard Worker pattern
+
+const IDB_HANDLES_KEY = 'hap_root_handles_v2'; // v2: array instead of single
 
 export class FileSystemManager {
-    // State
-    rootHandle = $state<FileSystemDirectoryHandle | null>(null);
+    // State — array of all registered root folder handles
+    rootHandles = $state<FileSystemDirectoryHandle[]>([]);
     isScanning = $state(false);
+    scanProgress = $state({ current: 0, total: 0, folder: '' });
 
     // Private
     private worker: Worker | null = null;
-    private readonly IDB_KEY = 'hap_root_handle';
 
     constructor() {
         if (typeof window !== 'undefined') {
-            this.init();
+            void this.init();
         }
     }
 
-    /**
-     * Initialize: load handle from IDB.
-     */
+    // ─── Derived: first handle (backward compat with player.svelte.ts) ─────────
+    get rootHandle(): FileSystemDirectoryHandle | null {
+        return this.rootHandles[0] ?? null;
+    }
+
+    // ─── Persist & load ──────────────────────────────────────────────────────────
+
     async init() {
         try {
-            const handle = await get<FileSystemDirectoryHandle>(this.IDB_KEY);
-            if (handle) {
-                this.rootHandle = handle;
-                console.log('[FS] Loaded root handle from IDB');
-                // Optional: verify permission here or lazily
+            // Try new multi-folder key first
+            const handles = await get<FileSystemDirectoryHandle[]>(IDB_HANDLES_KEY);
+            if (Array.isArray(handles) && handles.length > 0) {
+                this.rootHandles = handles;
+                console.log('[FS] Loaded', handles.length, 'root handle(s) from IDB');
+                return;
+            }
+            // Migrate from legacy single-folder key
+            const legacy = await get<FileSystemDirectoryHandle>('hap_root_handle');
+            if (legacy) {
+                this.rootHandles = [legacy];
+                await set(IDB_HANDLES_KEY, this.rootHandles);
+                console.log('[FS] Migrated legacy single root handle to multi-handle array');
             }
         } catch (err) {
-            console.error('[FS] Failed to load handle from IDB', err);
+            console.error('[FS] Failed to load handles from IDB', err);
         }
     }
 
+    private async saveHandles() {
+        await set(IDB_HANDLES_KEY, this.rootHandles);
+    }
+
+    // ─── Folder management ───────────────────────────────────────────────────────
+
     /**
-     * Open directory picker and set as root.
+     * Open directory picker and ADD the selected folder to the list.
+     * Does not replace existing folders.
      */
-    async selectRootFolder() {
+    async addFolder() {
         try {
             // @ts-ignore
-            const handle = await window.showDirectoryPicker({
+            const handle: FileSystemDirectoryHandle = await window.showDirectoryPicker({
                 mode: 'read',
-                id: 'hap_music_root'
+                id: 'hap_music_folder'
             });
 
-            // Verify permission (implied by selection, but good practice for persistence)
-            // await this.verifyPermission(handle, true);
+            // Check for duplicates (by name, best we can do without isSameEntry in all browsers)
+            const alreadyAdded = this.rootHandles.some(h => h.name === handle.name);
+            if (alreadyAdded) {
+                console.warn('[FS] Folder already in library:', handle.name);
+                return;
+            }
 
-            this.rootHandle = handle;
-            await set(this.IDB_KEY, handle);
+            this.rootHandles = [...this.rootHandles, handle];
+            await this.saveHandles();
 
-            // Start scanning automatically
-            this.startScan();
+            // Scan just the new folder
+            await this.scanFolder(handle);
 
         } catch (err: any) {
             if (err.name !== 'AbortError') {
-                console.error('[FS] Error selecting folder:', err);
+                console.error('[FS] Error adding folder:', err);
             }
         }
     }
 
     /**
-     * Start the scan worker.
+     * Remove a folder from the library by index.
      */
-    async startScan() {
-        if (!this.rootHandle) {
-            console.warn('[FS] No root handle, cannot scan');
-            return;
-        }
+    async removeFolder(index: number) {
+        const updated = [...this.rootHandles];
+        updated.splice(index, 1);
+        this.rootHandles = updated;
+        await this.saveHandles();
+    }
+
+    /**
+     * Rescan all registered folders.
+     */
+    async rescanAll() {
         if (this.isScanning) {
             console.warn('[FS] Already scanning');
             return;
         }
+        for (const handle of this.rootHandles) {
+            await this.scanFolder(handle);
+        }
+    }
 
-        // Verify permission before scanning (needed if handle loaded from IDB)
-        const hasPerm = await this.verifyPermission(this.rootHandle, true);
+    /**
+     * Scan a single folder handle. Legacy alias: startScan().
+     */
+    async startScan() {
+        if (this.rootHandle) await this.scanFolder(this.rootHandle);
+    }
+
+    async scanFolder(handle: FileSystemDirectoryHandle) {
+        if (this.isScanning) {
+            console.warn('[FS] Already scanning, queuing not yet supported');
+            return;
+        }
+        this.isScanning = true;
+        this.scanProgress = { current: 0, total: 0, folder: handle.name };
+
+        const hasPerm = await this.verifyPermission(handle, false);
         if (!hasPerm) {
-            console.warn('[FS] Permission denied for root handle');
-            // Ask user to re-request permission? 
-            // In a real app we might show a UI prompt.
-            // For now, try to proceed.
-            // If permission is prompted and declined, hasPerm is false.
+            console.warn('[FS] Permission denied for handle:', handle.name);
+            this.isScanning = false;
+            return;
         }
 
-        this.isScanning = true;
-        console.log('[FS] Starting scan for folder:', this.rootHandle.name);
+        console.log('[FS] Starting scan for folder:', handle.name);
 
-        // Init worker if needed
         if (!this.worker) {
-            console.log('[FS] Creating scanner worker...');
             this.worker = new Worker(new URL('./scanner.worker.ts', import.meta.url), {
                 type: 'module'
             });
             this.setupWorkerListeners();
         }
 
-        this.worker.postMessage({
-            type: 'START_SCAN',
-            payload: { handle: this.rootHandle }
-        });
-        console.log('[FS] Scan message sent to worker');
+        this.worker.postMessage({ type: 'START_SCAN', payload: { handle } });
     }
+
+    // ─── Worker message handling ─────────────────────────────────────────────────
 
     private setupWorkerListeners() {
         if (!this.worker) return;
 
         this.worker.onmessage = async (event) => {
             const { type, payload } = event.data;
-            // console.log('[FS] Worker message received:', type);
 
             switch (type) {
-                case 'SCAN_BATCH':
-                    // Process tracks and their artwork
+                case 'SCAN_BATCH': {
                     const tracks: any[] = payload.tracks;
                     for (const track of tracks) {
                         if (track.artwork_blob) {
                             try {
                                 const hash = await this.saveArtwork(track.artwork_blob);
                                 track.artwork_hash = hash;
-                                delete track.artwork_blob; // Clean up before DB
-                            } catch (err) {
-                                console.error('[FS] Failed to save artwork for', track.file_path, err);
-                                delete track.artwork_blob;
-                            }
+                            } catch { /* ignore artwork errors */ }
+                            delete track.artwork_blob;
                         }
                     }
-
-                    // Insert tracks into DB (batch upsert)
-                    console.log('[FS] Inserting batch of', tracks.length, 'tracks');
                     await db.upsertTracks(tracks);
+                    this.scanProgress = { ...this.scanProgress, current: this.scanProgress.current + tracks.length };
                     break;
-
+                }
                 case 'SCAN_PROGRESS':
-                    console.log(`[FS] Scan Progress: ${payload.count} tracks in ${payload.folder}`);
+                    this.scanProgress = { current: payload.count ?? 0, total: payload.total ?? 0, folder: payload.folder ?? '' };
                     break;
-
                 case 'SCAN_COMPLETE':
                     this.isScanning = false;
                     console.log('[FS] Scan complete');
                     break;
-
                 case 'SCAN_ERROR':
                     console.error('[FS] Scan error:', payload.message);
                     this.isScanning = false;
@@ -157,78 +189,88 @@ export class FileSystemManager {
         };
     }
 
-    /**
-     * Saves an artwork Blob to OPFS /art/ folder with a content-based hash name.
-     * Returns the hash string.
-     */
+    // ─── Artwork storage (OPFS) ──────────────────────────────────────────────────
+
     private async saveArtwork(blob: Blob): Promise<string> {
-        // Compute hash
         const buffer = await blob.arrayBuffer();
         const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const hashHex = Array.from(new Uint8Array(hashBuffer))
+            .map(b => b.toString(16).padStart(2, '0')).join('');
 
-        // Try to save to OPFS
         try {
             const root = await navigator.storage.getDirectory();
             const artDir = await root.getDirectoryHandle('art', { create: true });
-
-            // Format: <hash>.jpg (or whatever format it is)
-            const extension = blob.type.split('/')[1] || 'jpg';
-            const fileName = `${hashHex}.${extension}`;
-
-            const fileHandle = await artDir.getFileHandle(fileName, { create: true });
+            const ext = blob.type.split('/')[1] || 'jpg';
+            const fileHandle = await artDir.getFileHandle(`${hashHex}.${ext}`, { create: true });
             const writable = await fileHandle.createWritable();
             await writable.write(blob);
             await writable.close();
-
-            return hashHex;
         } catch (err) {
             console.error('[FS] Error saving artwork to OPFS:', err);
-            return hashHex; // Return hash anyway even if save fails? Maybe better not.
         }
+
+        return hashHex;
     }
 
-    /**
-     * Verify permission for a handle (read or readwrite).
-     */
+    // ─── Permission helper ───────────────────────────────────────────────────────
+
     private async verifyPermission(
         handle: FileSystemDirectoryHandle,
         withWrite: boolean
     ): Promise<boolean> {
-        // @ts-ignore - FileSystem API permissions are experimental
-        const opts: FileSystemHandlePermissionDescriptor = { mode: withWrite ? 'readwrite' : 'read' };
-
-        // @ts-ignore - queryPermission is experimental
-        if ((await handle.queryPermission(opts)) === 'granted') {
-            return true;
-        }
-        // @ts-ignore - requestPermission is experimental
-        if ((await handle.requestPermission(opts)) === 'granted') {
-            return true;
-        }
+        // @ts-ignore
+        const opts = { mode: withWrite ? 'readwrite' : 'read' };
+        // @ts-ignore
+        if ((await handle.queryPermission(opts)) === 'granted') return true;
+        // @ts-ignore
+        if ((await handle.requestPermission(opts)) === 'granted') return true;
         return false;
     }
 
+    // ─── File retrieval (searches ALL folders) ───────────────────────────────────
+
     /**
-     * Retrieve a file handle from a path string relative to root.
-     * e.g. "Music/Artist/Album/Song.mp3"
+     * Resolve a relative file path across ALL registered root folders.
+     * Tries each root in order until the file is found.
      */
     async getFileHandle(path: string): Promise<FileSystemFileHandle | null> {
-        if (!this.rootHandle) return null;
+        const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
+        const filename = parts[parts.length - 1];
+        const dirs = parts.slice(0, -1);
 
-        const parts = path.split('/');
-        let currentDir = this.rootHandle;
-
-        try {
-            for (let i = 0; i < parts.length - 1; i++) {
-                currentDir = await currentDir.getDirectoryHandle(parts[i]);
+        for (const root of this.rootHandles) {
+            try {
+                let currentDir = root;
+                for (const dir of dirs) {
+                    currentDir = await currentDir.getDirectoryHandle(dir);
+                }
+                const fileHandle = await currentDir.getFileHandle(filename);
+                return fileHandle;
+            } catch {
+                continue; // try next root
             }
-            return await currentDir.getFileHandle(parts[parts.length - 1]);
-        } catch (err) {
-            console.error(`[FS] File not found: ${path}`, err);
-            return null;
         }
+
+        console.error(`[FS] File not found in any root: ${path}`);
+        return null;
+    }
+
+    /**
+     * Get direct subdirectory handles of all root folders (for folder browser).
+     */
+    async getRootEntries(): Promise<Array<{ root: FileSystemDirectoryHandle; name: string; handle: FileSystemDirectoryHandle | FileSystemFileHandle; kind: 'file' | 'directory' }>> {
+        const entries: Array<{ root: FileSystemDirectoryHandle; name: string; handle: any; kind: 'file' | 'directory' }> = [];
+        for (const root of this.rootHandles) {
+            try {
+                // @ts-ignore
+                for await (const entry of root.values()) {
+                    entries.push({ root, name: entry.name, handle: entry, kind: entry.kind });
+                }
+            } catch (err) {
+                console.error('[FS] Error reading root entries:', err);
+            }
+        }
+        return entries;
     }
 }
 

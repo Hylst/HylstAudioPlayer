@@ -346,7 +346,13 @@
                     class="rounded-2xl overflow-hidden"
                     style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07)"
                 >
-                    {#each [{ label: "Bitrate", value: fmtBitrate(track.bitrate) }, { label: "Sample Rate", value: fmtHz(track.sample_rate) }, { label: "ReplayGain", value: track.replaygain_track_db != null ? `${track.replaygain_track_db.toFixed(2)} dB` : undefined }, { label: "MusicBrainz", value: track.musicbrainz_id }, { label: "Comment", value: track.comment }].filter((r) => r.value != null && r.value !== "—") as row, idx}
+                    {#each [{ label: "Bitrate", value: fmtBitrate(track.bitrate) }, { label: "Sample Rate", value: fmtHz(track.sample_rate) }, { label: "Format", value: track.file_format?.toUpperCase() }, { label: "Codec", value: track.codec ? (track.codec_profile ? `${track.codec} (${track.codec_profile})` : track.codec) : undefined }, { label: "Tags", value: (() => {
+                                try {
+                                    return track.tag_types ? (JSON.parse(track.tag_types) as string[]).join(", ") : undefined;
+                                } catch {
+                                    return track.tag_types;
+                                }
+                            })() }, { label: "File Size", value: track.file_size ? (track.file_size > 1_048_576 ? `${(track.file_size / 1_048_576).toFixed(1)} MB` : `${(track.file_size / 1024).toFixed(0)} KB`) : undefined }, { label: "ReplayGain", value: track.replaygain_track_db != null ? `${track.replaygain_track_db.toFixed(2)} dB` : undefined }, { label: "MusicBrainz", value: track.musicbrainz_id }, { label: "Comment", value: track.comment }].filter((r) => r.value != null && r.value !== "—") as row, idx}
                         <div
                             class="flex items-start justify-between px-4 py-3"
                             style={idx > 0
@@ -400,6 +406,24 @@
                             >{track.file_path}</span
                         >
                     </div>
+                    {#if track.date_modified}
+                        <div
+                            class="flex items-center justify-between px-4 py-3"
+                            style="border-top: 1px solid rgba(255,255,255,0.05)"
+                        >
+                            <span
+                                class="text-xs text-white/35 font-medium w-28 flex-shrink-0"
+                                >Modified</span
+                            >
+                            <span class="text-sm text-white/85"
+                                >{new Date(
+                                    track.date_modified,
+                                ).toLocaleDateString(undefined, {
+                                    dateStyle: "medium",
+                                })}</span
+                            >
+                        </div>
+                    {/if}
                 </div>
             </section>
 

@@ -34,11 +34,12 @@
         eq.setBand(i, v);
     }
 
-    // Poll for track count
+    // Poll for track count — browser only (guard against SSR shell generation)
     $effect(() => {
+        if (typeof window === "undefined") return;
         const interval = setInterval(async () => {
-            trackCount = await db.getTrackCount();
-        }, 1000);
+            if (db.isReady) trackCount = await db.getTrackCount();
+        }, 2000);
         return () => clearInterval(interval);
     });
 </script>
@@ -359,35 +360,74 @@
                 class="rounded-2xl overflow-hidden"
                 style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06)"
             >
-                <!-- Music folder -->
-                <div class="flex items-center gap-4 px-5 py-4">
+                <!-- Library Folders list -->
+                {#if fsManager.rootHandles.length === 0}
                     <div
-                        class="w-10 h-10 rounded-xl flex items-center justify-center"
-                        style="background: rgba(99,102,241,0.15)"
+                        class="flex items-center gap-4 px-5 py-4 text-white/40 text-sm"
                     >
-                        <span
-                            class="material-symbols-rounded text-[20px]"
-                            style="color: var(--hap-primary, #6467f2)"
-                            >folder_open</span
+                        <span class="material-symbols-rounded text-[20px]"
+                            >folder_off</span
                         >
+                        No music folders added yet
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-semibold text-white">
-                            Music Folder
+                {:else}
+                    {#each fsManager.rootHandles as handle, i}
+                        <div
+                            class="flex items-center gap-3 px-5 py-3
+                                    {i > 0 ? 'border-t border-white/5' : ''}"
+                        >
+                            <span
+                                class="material-symbols-rounded text-[18px]"
+                                style="color: var(--hap-primary, #6467f2)"
+                                >folder</span
+                            >
+                            <span class="flex-1 text-sm text-white truncate"
+                                >{handle.name}</span
+                            >
+                            <button
+                                onclick={() => fsManager.removeFolder(i)}
+                                class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500/20 transition-colors"
+                                aria-label="Remove folder {handle.name}"
+                            >
+                                <span
+                                    class="material-symbols-rounded text-[16px] text-white/30 hover:text-red-400"
+                                    >close</span
+                                >
+                            </button>
                         </div>
-                        <div class="text-xs text-white/40 truncate">
-                            {fsManager.rootHandle
-                                ? fsManager.rootHandle.name
-                                : "No folder selected"}
-                        </div>
-                    </div>
+                    {/each}
+                {/if}
+
+                <!-- Action row: Add + Rescan -->
+                <div
+                    class="flex items-center gap-2 px-5 py-3 border-t border-white/5"
+                >
                     <button
-                        onclick={() => fsManager.selectRootFolder()}
-                        class="px-4 py-2 rounded-full text-sm font-semibold text-white transition-all hover:brightness-110 active:scale-95"
-                        style="background: var(--hap-primary, #6467f2); box-shadow: 0 0 12px -2px var(--hap-primary-glow, rgba(100,103,242,0.4))"
+                        onclick={() => fsManager.addFolder()}
+                        class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-all hover:brightness-110 active:scale-95"
+                        style="background: var(--hap-primary, #6467f2); box-shadow: 0 0 12px -2px rgba(100,103,242,0.4)"
+                        aria-label="Add music folder"
                     >
-                        {fsManager.rootHandle ? "Change" : "Select"}
+                        <span class="material-symbols-rounded text-[16px]"
+                            >add</span
+                        >
+                        Add Folder
                     </button>
+                    {#if fsManager.rootHandles.length > 0}
+                        <button
+                            onclick={() => fsManager.rescanAll()}
+                            disabled={fsManager.isScanning}
+                            class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white/60 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
+                            aria-label="Rescan all folders"
+                        >
+                            <span
+                                class="material-symbols-rounded text-[16px] {fsManager.isScanning
+                                    ? 'animate-spin'
+                                    : ''}">sync</span
+                            >
+                            {fsManager.isScanning ? "Scanning…" : "Rescan All"}
+                        </button>
+                    {/if}
                 </div>
 
                 {#if fsManager.isScanning}
@@ -402,10 +442,12 @@
                         >
                         <div class="flex-1">
                             <div class="text-sm font-medium text-white">
-                                Scanning library...
+                                Scanning{fsManager.scanProgress.folder
+                                    ? ` "${fsManager.scanProgress.folder}"`
+                                    : ""}…
                             </div>
                             <div class="text-xs text-white/40">
-                                Adding tracks to database
+                                {fsManager.scanProgress.current} tracks found
                             </div>
                         </div>
                     </div>

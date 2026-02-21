@@ -193,7 +193,7 @@
           </p>
         </div>
         <button
-          onclick={() => fsManager.selectRootFolder()}
+          onclick={() => fsManager.addFolder()}
           class="px-6 py-3 rounded-full font-semibold text-sm text-white flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
           style="background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 0 24px rgba(99,102,241,0.4)"
         >

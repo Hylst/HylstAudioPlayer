@@ -137,9 +137,6 @@ async function writeMp3Tags(filePath: string, tags: TagFields): Promise<TagWrite
 }
 
 // ─── FLAC / OGG / OPUS: Vorbis Comment rewrite ───────────────────────────────
-// Strategy: use music-metadata to re-parse, then manually patch Vorbis comment block.
-// For FLAC: Comment block type = 4. For OGG: second packet in stream.
-// This is a best-effort implementation — rewrites the comment block in-place.
 async function writeVorbisCommentTags(
     filePath: string,
     tags: TagFields,
@@ -152,13 +149,168 @@ async function writeVorbisCommentTags(
         return await writeFlacTags(fileHandle, tags);
     }
 
-    // OGG/OPUS: complex bitstream format, requires proper Ogg framing
-    // For now, return an informative message — full support planned
-    return {
-        success: false,
-        format,
-        error: `OGG/OPUS tag write-back not yet implemented. Changes saved to database only.`
-    };
+    // OGG Vorbis / OPUS: locate comment header page, replace comment packet
+    return await writeOggVorbisTags(fileHandle, tags, format);
+}
+
+// ─── OGG Vorbis / OPUS tag writer ────────────────────────────────────────────
+// Ogg format: stream of pages, each starting with 'OggS' magic.
+// For Vorbis: 2nd logical bitstream packet (page) = Vorbis comment header.
+// For Opus:   2nd page = OpusTags header.
+// Strategy: find the 2nd Page (serial#, page_seq=1), replace its packet data.
+async function writeOggVorbisTags(
+    fileHandle: FileSystemFileHandle,
+    tags: TagFields,
+    format: 'ogg' | 'opus'
+): Promise<TagWriteResult> {
+    const file = await fileHandle.getFile();
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const dv = new DataView(buf.buffer);
+
+    // Parse all Ogg pages and find the comment header page
+    let offset = 0;
+    let commentPageStart = -1;
+    let commentPageEnd = -1;
+    let serialNo = -1;
+    let pageIdx = 0;
+
+    while (offset + 27 <= buf.length) {
+        // OggS magic
+        if (buf[offset] !== 0x4F || buf[offset + 1] !== 0x67 || buf[offset + 2] !== 0x67 || buf[offset + 3] !== 0x53) {
+            break; // not an Ogg page
+        }
+
+        const headerType = buf[offset + 5];
+        const sn = dv.getInt32(offset + 14, true); // serial number LE
+        const pageSeq = dv.getUint32(offset + 18, true);
+        const nseg = buf[offset + 26]; // number of lace segments
+        let pageDataLen = 0;
+        for (let i = 0; i < nseg; i++) pageDataLen += buf[offset + 27 + i];
+        const pageLen = 27 + nseg + pageDataLen;
+
+        // The comment page is always pageSeq=1 (second page, 0-indexed)
+        // It contains the Vorbis comment header (packet type 0x03 for Vorbis, "OpusTags" for Opus)
+        if (pageSeq === 1) {
+            const dataStart = offset + 27 + nseg;
+            const isVorbisComment = format === 'ogg' && buf[dataStart] === 0x03;
+            const isOpusTags = format === 'opus' && buf[dataStart] === 0x4F; // 'O' in OpusTags
+            if (isVorbisComment || isOpusTags) {
+                commentPageStart = offset;
+                commentPageEnd = offset + pageLen;
+                serialNo = sn;
+            }
+        }
+
+        offset += pageLen;
+        pageIdx++;
+    }
+
+    if (commentPageStart === -1) {
+        return { success: false, format, error: `No ${format === 'opus' ? 'OpusTags' : 'Vorbis comment'} header found in OGG file. File may be corrupt or non-standard.` };
+    }
+
+    // Build new comment packet
+    const comments = buildVorbisComments(tags);
+    const vendor = 'HylstAudioPlayer/1.0';
+    let commentPacket: Uint8Array;
+
+    if (format === 'opus') {
+        // OpusTags format: "OpusTags" + vendor_len(4LE) + vendor + count(4LE) + [len(4LE)+comment ...]
+        commentPacket = buildOpusTagsPacket(vendor, comments);
+    } else {
+        // Vorbis comment format: 0x03 + "vorbis" + vendor_len(4LE) + vendor + count(4LE) + [len(4LE)+comment ...]
+        commentPacket = buildVorbisCommentPacket(vendor, comments);
+    }
+
+    // Re-assemble the OGG page with the new packet
+    const newPage = buildOggPage(commentPacket, serialNo, 1, 0, false, false);
+
+    // Build new file buffer: before + new page + after old page
+    const before = buf.slice(0, commentPageStart);
+    const after = buf.slice(commentPageEnd);
+    const newBuf = new Uint8Array(before.length + newPage.length + after.length);
+    newBuf.set(before, 0);
+    newBuf.set(newPage, before.length);
+    newBuf.set(after, before.length + newPage.length);
+
+    const writable = await (fileHandle as any).createWritable();
+    await writable.write(newBuf.buffer);
+    await writable.close();
+
+    return { success: true, format };
+}
+
+// ─── Ogg page builder ──────────────────────────────────────────────────────────
+function buildOggPage(
+    packet: Uint8Array,
+    serialNo: number,
+    pageSeq: number,
+    granulePos: number,
+    isBOS: boolean,
+    isEOS: boolean
+): Uint8Array {
+    // Build lace table (255-byte segments)
+    const lace: number[] = [];
+    let remaining = packet.length;
+    while (remaining >= 255) { lace.push(255); remaining -= 255; }
+    lace.push(remaining);
+
+    const headerSize = 27 + lace.length;
+    const page = new Uint8Array(headerSize + packet.length);
+    const dv = new DataView(page.buffer);
+
+    // Magic
+    page[0] = 0x4F; page[1] = 0x67; page[2] = 0x67; page[3] = 0x53;
+    page[4] = 0; // version
+    page[5] = (isBOS ? 0x02 : 0) | (isEOS ? 0x04 : 0); // header type
+    dv.setBigInt64(6, BigInt(granulePos), true); // granule position
+    dv.setInt32(14, serialNo, true); // serial number
+    dv.setUint32(18, pageSeq, true); // page sequence number
+    dv.setUint32(22, 0, true); // checksum placeholder
+    page[26] = lace.length; // number of segments
+    for (let i = 0; i < lace.length; i++) page[27 + i] = lace[i];
+    page.set(packet, headerSize);
+
+    // Compute CRC32 over whole page (checksum at bytes 22-25)
+    const crc = oggCRC32(page);
+    dv.setUint32(22, crc, true);
+
+    return page;
+}
+
+// CRC32 for Ogg (polynomial 0x04c11db7, initial value 0)
+function oggCRC32(data: Uint8Array): number {
+    let crc = 0;
+    for (let i = 0; i < data.length; i++) {
+        crc ^= data[i] << 24;
+        for (let j = 0; j < 8; j++) {
+            crc = (crc & 0x80000000) ? (crc << 1) ^ 0x04c11db7 : crc << 1;
+            crc |= 0; // keep 32-bit
+        }
+    }
+    return crc >>> 0;
+}
+
+// ─── Vorbis comment packet builder ────────────────────────────────────────────
+function buildVorbisCommentPacket(vendor: string, comments: string[]): Uint8Array {
+    const head = new TextEncoder().encode('\x03vorbis');
+    const body = buildVorbisCommentBlock(vendor, comments);
+    // Append framing bit (0x01) required by Vorbis spec
+    const packet = new Uint8Array(head.length + body.length + 1);
+    packet.set(head, 0);
+    packet.set(body, head.length);
+    packet[head.length + body.length] = 0x01;
+    return packet;
+}
+
+// ─── OpusTags packet builder ───────────────────────────────────────────────────
+function buildOpusTagsPacket(vendor: string, comments: string[]): Uint8Array {
+    const head = new TextEncoder().encode('OpusTags');
+    const body = buildVorbisCommentBlock(vendor, comments);
+    const packet = new Uint8Array(head.length + body.length);
+    packet.set(head, 0);
+    packet.set(body, head.length);
+    return packet;
 }
 
 // ─── FLAC tag writer ──────────────────────────────────────────────────────────

@@ -122,19 +122,48 @@ export async function fetchCoverArt(releaseId: string): Promise<string | null> {
 }
 
 /**
- * Full identification: search MB then fetch cover art for the best match.
+ * Full identification: runs MusicBrainz + iTunes + Deezer in parallel.
+ * Results are merged across sources (de-duped by title+artist) and sorted by score.
  */
 export async function identifyTrack(
     title: string,
     artist: string
 ): Promise<TrackIdentification[]> {
-    const results = await searchMusicBrainz(title, artist);
+    // Lazy-import additional sources to avoid circular deps
+    const [{ searchItunes }, { searchDeezer }] = await Promise.all([
+        import('./itunes'),
+        import('./deezer'),
+    ]);
 
-    // Try to get cover art for the top result
-    if (results.length > 0 && results[0].releaseId) {
-        const artUrl = await fetchCoverArt(results[0].releaseId);
-        if (artUrl) results[0].artworkUrl = artUrl;
+    // Run all 3 in parallel
+    const [mbResult, itunesResult, deezerResult] = await Promise.allSettled([
+        searchMusicBrainz(title, artist),
+        searchItunes(title, artist),
+        searchDeezer(title, artist),
+    ]);
+
+    const mb = mbResult.status === 'fulfilled' ? mbResult.value : [];
+    const itunes = itunesResult.status === 'fulfilled' ? itunesResult.value : [];
+    const deezer = deezerResult.status === 'fulfilled' ? deezerResult.value : [];
+
+    // Try to fetch cover art for the top MB result
+    if (mb.length > 0 && mb[0].releaseId) {
+        const artUrl = await fetchCoverArt(mb[0].releaseId).catch(() => null);
+        if (artUrl) mb[0].artworkUrl = artUrl;
     }
 
-    return results;
+    // Merge: MB first (authoritative), then others
+    const merged: TrackIdentification[] = [...mb, ...itunes, ...deezer];
+
+    // De-duplicate: if same title+artist from different sources, keep highest-scoring
+    const seen = new Map<string, TrackIdentification>();
+    for (const r of merged) {
+        const key = `${r.title.toLowerCase()}|${r.artist.toLowerCase()}`;
+        const existing = seen.get(key);
+        if (!existing || r.score > existing.score) {
+            seen.set(key, r);
+        }
+    }
+
+    return Array.from(seen.values()).sort((a, b) => b.score - a.score).slice(0, 10);
 }

@@ -38,7 +38,14 @@ CREATE TABLE IF NOT EXISTS tracks (
   comment         TEXT,
   mood            TEXT,
   replaygain_track_db REAL,
-  keywords        TEXT  -- JSON array of user-defined tags
+  keywords        TEXT,  -- JSON array of user-defined tags
+  -- File metadata (v4)
+  file_size       INTEGER,        -- File.size in bytes
+  file_format     TEXT,           -- mp3 | flac | ogg | opus | m4a | wav | wma
+  codec           TEXT,           -- MPEG 1 Layer 3, FLAC, Vorbis, Opus…
+  codec_profile   TEXT,           -- ID3v2.4, Vorbis 1.0, …
+  tag_types       TEXT,           -- JSON: ["ID3v2.3","APEv2"]
+  date_modified   INTEGER         -- File.lastModified (ms since epoch)
 );
 
 CREATE TABLE IF NOT EXISTS albums (
@@ -124,7 +131,7 @@ END;
  * Current User Version of the database (for migrations).
  * Increment this number when adding new migrations.
  */
-export const CURRENT_DB_VERSION = 3;
+export const CURRENT_DB_VERSION = 4;
 
 /**
  * Type guard to check if a DB row is a Track.

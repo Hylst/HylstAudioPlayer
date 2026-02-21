@@ -36,6 +36,13 @@ export interface Track {
     mood?: string;
     replaygain_track_db?: number;
     keywords?: string[]; // stored as JSON, hydrated on read
+    // File metadata (v3 — populated at scan time)
+    file_size?: number;       // bytes, from File.size
+    file_format?: string;     // mp3 | flac | ogg | opus | m4a | wav | wma
+    codec?: string;           // MPEG 1 Layer 3, FLAC, Vorbis, Opus…
+    codec_profile?: string;   // ID3v2.4, Vorbis 1.0, …
+    tag_types?: string;       // JSON array: ["ID3v2.3", "APEv2"]
+    date_modified?: number;   // File.lastModified (ms since epoch)
 }
 
 /**

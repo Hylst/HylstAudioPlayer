@@ -3,19 +3,20 @@ import type { Track } from '$lib/types';
 
 /**
  * Maps music-metadata IAudioMetadata to HAP Track interface.
- * Extracts all available extended tags (v2): composer, lyrics, ISRC,
- * label, comment, mood, ReplayGain.
+ * Extracts all available extended tags and v4 file metadata.
+ * @param metadata — result of parseBlob() from music-metadata
+ * @param filePath — relative path stored in DB (used as ID)
+ * @param file     — optional File object for size + lastModified
  */
 export function mapMetadataToTrack(
     metadata: IAudioMetadata,
     filePath: string,
-    stats?: { size: number; mtime: Date }
+    file?: File
 ): Partial<Track> {
     const common = metadata.common;
     const format = metadata.format;
 
-    // ─── ReplayGain ───────────────────────────────────────────────────────────
-    // music-metadata exposes replaygain_track_gain as a string like "-6.32 dB"
+    // ─── ReplayGain ──────────────────────────────────────────────────────────
     let replaygainDb: number | undefined;
     const rgRaw = common.replaygain_track_gain;
     if (rgRaw !== undefined) {
@@ -25,11 +26,24 @@ export function mapMetadataToTrack(
         if (!isNaN(parsed)) replaygainDb = parsed;
     }
 
-    // ─── ISRC — may be on the recording or in native tags ─────────────────────
+    // ─── ISRC + Label ─────────────────────────────────────────────────────────
     const isrc = (common as any).isrc ?? undefined;
-
-    // ─── Label (Publisher) ────────────────────────────────────────────────────
     const label = (common as any).label ?? (common as any).organization ?? undefined;
+
+    // ─── File format/codec (v4) ───────────────────────────────────────────────
+    const fileExt = filePath.split('.').pop()?.toLowerCase() ?? '';
+    const containerMap: Record<string, string> = {
+        'MPEG': 'mp3', 'FLAC': 'flac', 'Ogg': 'ogg', 'Opus': 'opus',
+        'AAC': 'm4a', 'MP4': 'm4a', 'WMA': 'wma', 'WAV': 'wav',
+        'AIFF': 'aiff', 'APE': 'ape', 'WavPack': 'wv',
+    };
+    const file_format = format.container
+        ? (containerMap[format.container] ?? fileExt)
+        : fileExt;
+
+    const tag_types = format.tagTypes?.length
+        ? JSON.stringify(format.tagTypes)
+        : undefined;
 
     const track: Partial<Track> = {
         file_path: filePath,
@@ -57,7 +71,14 @@ export function mapMetadataToTrack(
         comment: common.comment ? (common.comment[0]?.text ?? String(common.comment[0])) : undefined,
         mood: (common as any).mood ?? undefined,
         replaygain_track_db: replaygainDb,
-        keywords: [], // user-managed, not extracted from tags
+        keywords: [],
+        // File metadata (v4)
+        file_size: file?.size,
+        file_format,
+        codec: format.codec,
+        codec_profile: format.codecProfile,
+        tag_types,
+        date_modified: file?.lastModified,
     };
 
     return track;

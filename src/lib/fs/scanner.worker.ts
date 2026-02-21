@@ -74,9 +74,9 @@ async function scanDirectory(dirHandle: FileSystemDirectoryHandle, parentPath: s
                     const fileHandle = entry as FileSystemFileHandle;
                     const file = await fileHandle.getFile();
 
-                    // Parse metadata
+                    // Parse metadata — pass file for size + lastModified
                     const metadata = await parseBlob(file);
-                    const track = mapMetadataToTrack(metadata, entryPath);
+                    const track = mapMetadataToTrack(metadata, entryPath, file);
 
                     // EXTRACT ARTWORK
                     const artworkBlob = extractArtwork(metadata);
