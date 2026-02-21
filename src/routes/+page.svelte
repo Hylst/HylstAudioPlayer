@@ -340,7 +340,7 @@
             <div class="px-1">
               <div class="flex items-start justify-between gap-1">
                 <h3
-                  class="font-semibold text-sm truncate leading-snug"
+                  class="font-semibold text-sm truncate leading-snug flex-1"
                   style={isCurrent
                     ? "color: var(--hap-primary,#6467f2); font-weight: 700"
                     : "color: rgba(255,255,255,0.9)"}
@@ -356,9 +356,34 @@
                   <span class="material-symbols-rounded text-[16px]">info</span>
                 </a>
               </div>
-              <p class="text-white/45 text-xs truncate mt-0.5">
-                {track.artist ?? "Unknown Artist"}
-              </p>
+              <div class="flex items-center justify-between gap-1 mt-0.5">
+                <p class="text-white/45 text-xs truncate flex-1">
+                  {track.artist ?? "Unknown Artist"}
+                </p>
+                <!-- Heart / Favorite button -->
+                <button
+                  class="shrink-0 w-6 h-6 flex items-center justify-center transition-all opacity-60 hover:opacity-100"
+                  aria-label={playlists.isFavorite(track.id)
+                    ? "Remove from favorites"
+                    : "Add to favorites"}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    playlists.toggleFavorite(track.id);
+                  }}
+                  style={playlists.isFavorite(track.id)
+                    ? "color: #f43f5e"
+                    : "color: rgba(255,255,255,0.35)"}
+                >
+                  <span
+                    class="material-symbols-rounded text-[16px]"
+                    style="font-variation-settings: 'FILL' {playlists.isFavorite(
+                      track.id,
+                    )
+                      ? 1
+                      : 0}, 'wght' 400">favorite</span
+                  >
+                </button>
+              </div>
             </div>
           </div>
         {/each}

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { player } from "$lib/audio/player.svelte";
+    import { playlists } from "$lib/audio/playlists.svelte";
     import { formatTime } from "$lib/utils/format";
     import VisualizerCanvas from "$lib/../components/player/VisualizerCanvas.svelte";
 
@@ -155,11 +156,26 @@
                     </p>
                 </div>
                 <button
-                    class="w-10 h-10 flex items-center justify-center text-white/40 hover:text-pink-400 transition-colors flex-shrink-0 mt-1"
-                    aria-label="Like track"
+                    class="w-10 h-10 flex items-center justify-center transition-colors flex-shrink-0 mt-1"
+                    aria-label={playlists.isFavorite(
+                        player.currentTrack?.id ?? -1,
+                    )
+                        ? "Remove from favorites"
+                        : "Add to favorites"}
+                    onclick={() =>
+                        player.currentTrack &&
+                        playlists.toggleFavorite(player.currentTrack.id)}
+                    style={playlists.isFavorite(player.currentTrack?.id ?? -1)
+                        ? "color: #f43f5e; filter: drop-shadow(0 0 8px rgba(244,63,94,0.5))"
+                        : "color: rgba(255,255,255,0.35)"}
                 >
-                    <span class="material-symbols-rounded text-[26px]"
-                        >favorite_border</span
+                    <span
+                        class="material-symbols-rounded text-[26px]"
+                        style="font-variation-settings: 'FILL' {playlists.isFavorite(
+                            player.currentTrack?.id ?? -1,
+                        )
+                            ? 1
+                            : 0}, 'wght' 400">favorite</span
                     >
                 </button>
             </div>

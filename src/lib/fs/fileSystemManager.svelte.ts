@@ -42,7 +42,7 @@ export class FileSystemManager {
             const legacy = await get<FileSystemDirectoryHandle>('hap_root_handle');
             if (legacy) {
                 this.rootHandles = [legacy];
-                await set(IDB_HANDLES_KEY, this.rootHandles);
+                await set(IDB_HANDLES_KEY, [legacy]); // plain array, not proxy
                 console.log('[FS] Migrated legacy single root handle to multi-handle array');
             }
         } catch (err) {
@@ -51,7 +51,13 @@ export class FileSystemManager {
     }
 
     private async saveHandles() {
-        await set(IDB_HANDLES_KEY, this.rootHandles);
+        // CRITICAL: spread Svelte $state proxy → plain array before IDB storage
+        // idb-keyval uses structured clone which can't clone Svelte reactive proxies.
+        try {
+            await set(IDB_HANDLES_KEY, [...this.rootHandles]);
+        } catch (err) {
+            console.error('[FS] Failed to save handles to IDB', err);
+        }
     }
 
     // ─── Folder management ───────────────────────────────────────────────────────
