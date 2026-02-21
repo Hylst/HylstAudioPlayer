@@ -66,9 +66,10 @@ export class AudioEngine {
         this.pauseTime = 0;
     }
 
-    play(): void {
+    async play(): Promise<void> {
+        // Chrome autoplay policy: AudioContext starts suspended — must await resume
         if (this.context.state === 'suspended') {
-            this.context.resume();
+            await this.context.resume();
         }
         if (!this.source) return;
         if (this.isPlaying) return;
@@ -114,15 +115,20 @@ export class AudioEngine {
     }
 
     seek(time: number): void {
-        if (!this.source) return;
-        const buffer = this.source.buffer;
+        const buffer = this.source?.buffer ?? null;
+        const wasPlaying = this.isPlaying;
         this.stop();
         if (buffer) {
             this.createSourceFromBuffer(buffer, time);
-            this.source!.start(0, time);
-            this.startTime = this.context.currentTime - time;
             this.pauseTime = time;
-            this.isPlaying = true;
+            if (wasPlaying) {
+                // Re-start immediately — context is already running so no await needed
+                this.source!.start(0, time);
+                this.startTime = this.context.currentTime - time;
+                this.pauseTime = time;
+                this.isPlaying = true;
+                this.source!.onended = () => { if (this.isPlaying) this.isPlaying = false; };
+            }
         }
     }
 
@@ -144,7 +150,9 @@ export class AudioEngine {
 
     getCurrentTime(): number {
         if (!this.isPlaying) return this.pauseTime;
-        return this.context.currentTime - this.startTime;
+        const t = this.context.currentTime - this.startTime;
+        const dur = this.getDuration();
+        return dur > 0 ? Math.min(t, dur) : t;
     }
 
     getDuration(): number {

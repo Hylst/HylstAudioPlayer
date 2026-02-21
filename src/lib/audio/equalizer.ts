@@ -16,7 +16,7 @@ export const EQ_PRESETS: Record<string, number[]> = {
 
 export const EQ_FREQUENCIES = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000] as const;
 
-class EqualizerStore {
+export class EqualizerStore {
     bands = $state<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     activePreset = $state('Flat');
     preampGain = $state(0);

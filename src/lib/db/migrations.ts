@@ -109,6 +109,16 @@ export function migrateDatabase(db: any) {
             }
         }
 
+        // v4 → v5: Playlist cover_art column
+        if (version < 5) {
+            console.log('[Migration] v4→v5: Adding cover_art to playlists...');
+            try {
+                db.exec(`ALTER TABLE playlists ADD COLUMN cover_art TEXT`);
+            } catch (e) {
+                console.warn('[Migration] Skipping cover_art (may already exist):', e);
+            }
+        }
+
         db.exec(`PRAGMA user_version = ${CURRENT_DB_VERSION}`);
         console.log('[Migration] Done.');
     } else {

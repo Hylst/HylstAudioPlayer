@@ -243,6 +243,21 @@ export class DatabaseManager {
         this.lastUpdate++;
     }
 
+    async reorderPlaylistTracks(playlistId: number, order: number[]): Promise<void> {
+        await this.send('REORDER_PLAYLIST_TRACKS', { playlistId, order });
+        this.lastUpdate++;
+    }
+
+    async updatePlaylistCover(id: number, coverArt: string | null): Promise<void> {
+        await this.send('UPDATE_PLAYLIST_COVER', { id, coverArt });
+        this.lastUpdate++;
+    }
+
+    async resetLibrary(): Promise<void> {
+        await this.send('RESET_LIBRARY', {});
+        this.lastUpdate++;
+    }
+
     // ─── Favorites ─────────────────────────────────────────────────────────────
 
     async addFavorite(trackId: number): Promise<void> {

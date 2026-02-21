@@ -1,8 +1,8 @@
 <script lang="ts">
     import { fsManager } from "$lib/fs/fileSystemManager.svelte";
     import { db } from "$lib/db/database.svelte";
-    import { player } from "$lib/audio/player.svelte";
-    import { eq, EQ_PRESETS } from "$lib/audio/equalizer";
+    // Note: player and eq are NOT imported at top-level — they create AudioContext which crashes SSR.
+    // They are lazy-loaded inside $effect (browser-only).
 
     let trackCount = $state(0);
 
@@ -20,10 +20,39 @@
         "16K",
     ];
 
-    // Audio enhancements (currently UI only, can be added to eq store later)
+    // Audio enhancements
     let bassBoost = $state(false);
     let surroundSound = $state(false);
     let vocalBoost = $state(false);
+
+    // Lazy-loaded EQ references — populated once on client
+    // We mirror the eq store state locally so the template stays reactive.
+    let eqBands = $state<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    let activePreset = $state("Flat");
+    let preampGain = $state(0);
+    let eqPresets = $state<Record<string, number[]>>({
+        Flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        Rock: [4, 3, -1, -1, 0, 2, 4, 5, 5, 4],
+        Jazz: [3, 2, 0, 2, -2, -2, 0, 1, 3, 4],
+        Pop: [-1, -1, 0, 2, 4, 4, 2, 0, -1, -2],
+        Classic: [4, 3, 3, 2, -1, -1, 0, 2, 3, 4],
+        Electronic: [5, 4, 1, 0, -2, 2, 1, 1, 5, 5],
+    });
+
+    // Lazily resolved eq store instance
+    let eqStore: import("$lib/audio/equalizer").EqualizerStore | null = null;
+
+    $effect(() => {
+        if (typeof window === "undefined") return;
+        // Lazy-load the eq+player module chain (creates AudioContext only in browser)
+        import("$lib/audio/equalizer").then(({ eq, EQ_PRESETS }) => {
+            eqStore = eq;
+            eqPresets = { ...EQ_PRESETS };
+            eqBands = [...eq.bands];
+            activePreset = eq.activePreset;
+            preampGain = eq.preampGain;
+        });
+    });
 
     function bandToPercent(val: number): number {
         return ((val + 12) / 24) * 100;
@@ -31,10 +60,19 @@
 
     function handleBandInput(i: number, e: Event): void {
         const v = parseFloat((e.target as HTMLInputElement).value);
-        eq.setBand(i, v);
+        eqBands = eqBands.map((b, idx) => (idx === i ? v : b));
+        eqStore?.setBand(i, v);
+        activePreset = "Custom";
     }
 
-    // Poll for track count — browser only (guard against SSR shell generation)
+    function handleApplyPreset(preset: string): void {
+        if (!eqStore) return;
+        eqStore.applyPreset(preset);
+        eqBands = [...(eqPresets[preset] ?? eqBands)];
+        activePreset = preset;
+    }
+
+    // Poll for track count — browser only
     $effect(() => {
         if (typeof window === "undefined") return;
         const interval = setInterval(async () => {
@@ -85,19 +123,20 @@
                 class="flex overflow-x-auto gap-2 pb-2"
                 style="scrollbar-width: none"
             >
-                {#each Object.keys(EQ_PRESETS) as preset}
+                {#each Object.keys(eqPresets) as preset}
                     <button
-                        class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all {eq.activePreset ===
+                        class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all {activePreset ===
                         preset
                             ? ''
                             : 'text-white/60 hover:text-white hover:bg-white/10'}"
-                        style={eq.activePreset === preset
+                        style={activePreset === preset
                             ? `background: var(--hap-primary, #6467f2); color: white; box-shadow: 0 0 16px -4px var(--hap-primary-glow, rgba(100,103,242,0.5))`
                             : `background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08)`}
-                        onclick={() => eq.applyPreset(preset)}>{preset}</button
+                        onclick={() => handleApplyPreset(preset)}
+                        >{preset}</button
                     >
                 {/each}
-                {#if eq.activePreset === "Custom"}
+                {#if activePreset === "Custom"}
                     <span
                         class="shrink-0 px-4 py-2 rounded-full text-sm font-semibold"
                         style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); color: rgba(255,255,255,0.3)"
@@ -122,7 +161,7 @@
                 <div
                     class="grid grid-cols-10 gap-1 h-52 items-end justify-items-center"
                 >
-                    {#each eq.bands as band, i}
+                    {#each eqBands as band, i}
                         {@const heightPct = bandToPercent(band)}
                         <div
                             class="flex flex-col items-center gap-2 h-full justify-end group w-full"
@@ -318,7 +357,7 @@
                     <span
                         class="text-sm font-bold tabular-nums"
                         style="color: var(--hap-primary, #6467f2)"
-                        >{eq.preampGain > 0 ? "+" : ""}{eq.preampGain} dB</span
+                        >{preampGain > 0 ? "+" : ""}{preampGain} dB</span
                     >
                 </div>
                 <div
@@ -327,7 +366,7 @@
                 >
                     <div
                         class="absolute top-0 left-0 h-full rounded-full"
-                        style="width: {((eq.preampGain + 12) / 24) *
+                        style="width: {((preampGain + 12) / 24) *
                             100}%; background: linear-gradient(to right, var(--hap-primary, #6467f2), rgba(100,103,242,0.5))"
                     ></div>
                     <input
@@ -335,14 +374,20 @@
                         min="-12"
                         max="12"
                         step="0.5"
-                        bind:value={eq.preampGain}
+                        value={preampGain}
+                        oninput={(e) => {
+                            preampGain = parseFloat(
+                                (e.target as HTMLInputElement).value,
+                            );
+                            eqStore && (eqStore.preampGain = preampGain);
+                        }}
                         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        aria-label="Pre-amp gain: {eq.preampGain}dB"
+                        aria-label="Pre-amp gain: {preampGain}dB"
                     />
                     <!-- Thumb -->
                     <div
                         class="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white pointer-events-none"
-                        style="left: calc({((eq.preampGain + 12) / 24) *
+                        style="left: calc({((preampGain + 12) / 24) *
                             100}% - 10px); box-shadow: 0 0 12px var(--hap-primary-glow, rgba(100,103,242,0.6))"
                     ></div>
                 </div>
@@ -462,6 +507,7 @@
                         >{trackCount} tracks indexed</span
                     >
                     <div class="flex gap-2">
+                        <!-- Export DB -->
                         <button
                             class="px-3 py-1.5 rounded-full text-xs font-semibold text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                             onclick={() =>
@@ -472,10 +518,69 @@
                                     a.download = `hap_backup_${new Date().toISOString().split("T")[0]}.db`;
                                     a.click();
                                 })}
+                            aria-label="Export database"
                         >
                             Export DB
                         </button>
+                        <!-- Import DB -->
+                        <button
+                            class="px-3 py-1.5 rounded-full text-xs font-semibold text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                            aria-label="Import database"
+                            onclick={() => {
+                                const input = document.createElement("input");
+                                input.type = "file";
+                                input.accept = ".db,.sqlite,.sqlite3";
+                                input.onchange = async () => {
+                                    const file = input.files?.[0];
+                                    if (!file) return;
+                                    try {
+                                        await db.importDatabase(file);
+                                        alert("Library imported! Reloading…");
+                                        location.reload();
+                                    } catch (e) {
+                                        alert("Import failed: " + e);
+                                    }
+                                };
+                                input.click();
+                            }}
+                        >
+                            Import DB
+                        </button>
                     </div>
+                </div>
+                <!-- Danger zone: Reset Library -->
+                <div
+                    class="flex items-center justify-between px-5 py-4 border-t"
+                    style="border-color: rgba(255,0,0,0.1)"
+                >
+                    <div>
+                        <div class="text-sm font-semibold text-red-400">
+                            Reset Library
+                        </div>
+                        <div class="text-xs text-white/30">
+                            Remove all tracks from the database
+                        </div>
+                    </div>
+                    <button
+                        class="px-3 py-1.5 rounded-full text-xs font-semibold text-red-400 hover:bg-red-500/15 transition-colors"
+                        aria-label="Reset library"
+                        onclick={async () => {
+                            if (
+                                !confirm(
+                                    "Delete ALL tracks from the library? This cannot be undone.",
+                                )
+                            )
+                                return;
+                            await db.resetLibrary();
+                            // Stop playback for a clean UX before reload
+                            if (player.isPlaying) player.togglePlay();
+                            trackCount = 0;
+                            // Reload to clear all in-memory state (queue, track list, etc.)
+                            setTimeout(() => location.reload(), 300);
+                        }}
+                    >
+                        Reset
+                    </button>
                 </div>
             </div>
         </section>

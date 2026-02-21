@@ -6,24 +6,30 @@
 ---
 
 ## 🎯 CURRENT SPRINT
-> Sprint actuel, objectif et date de fin estimée.
-
-**Sprint :** Phase 6 — Stitch UI Redesign (Part 2) + Phase 4 EQ Wiring
-**Objectif :** Connecter l'EQ aux Web Audio API, visualiseur de spectre, animer les transitions
+**Sprint :** Phase 4 — EQ Wiring + Visualizer
+**Objectif :** Câbler l'EQ 10 bandes UI → Web Audio Graph, implémenter le visualiseur FFT Canvas
 **Deadline estimée :** À définir
 
 ---
 
 ## 🔄 IN PROGRESS
-> Tâches en cours. Maximum 3 simultanées.
 
-- [ ] **[P4-004]** `src/lib/audio/equalizer.ts` — Câbler l'EQ 10 bandes UI → Web Audio Graph
-  - Assigné à : IA
-  - Démarré le : —
-  - Note : UI EQ créée dans `/settings`, besoin de connecter à audioEngine.ts
+- [ ] **[P4-004]** `src/lib/audio/equalizer.ts` — Câbler EQ 10 bandes UI → Web Audio Graph
+  - Note : UI créée dans `/settings`, besoin de connecter à `audioEngine.ts`
 - [ ] **[P4-005]** `src/lib/audio/visualizer.ts` — FFT Canvas visualiseur de spectre
-  - Assigné à : IA
-  - Démarré le : —
+
+---
+
+## ✅ DONE (2026-02-21)
+
+- [x] **[F-001]** Multi-dossiers bibliothèque — `fileSystemManager.svelte.ts` reécrit, `rootHandles[]`, `addFolder/removeFolder/rescanAll`, migration IDB auto
+- [x] **[F-002]** OGG/OPUS tag write-back — parser Ogg page-by-page + CRC32 + reconstruction paquet Vorbis/OpusTags
+- [x] **[F-003]** Schéma DB v4 — `file_size`, `file_format`, `codec`, `codec_profile`, `tag_types`, `date_modified` (types + schema + migrations + tagUtils + scanner)
+- [x] **[F-004]** Identification multi-source — iTunes + Deezer + MusicBrainz en parallèle (`Promise.allSettled`), dédoublonnage
+- [x] **[F-005]** Settings 500 fix — guard `typeof window` dans `$effect`
+- [x] **[F-006]** Context menu submenu — positionnement smart (gauche si menu dans moitié droite de l'écran)
+- [x] **[F-007]** Settings page — gestionnaire multi-dossiers UI (liste, add, remove, rescan all)
+- [x] **[F-008]** Track detail page — Format, Codec, Tags, File Size, Modified affichés
 
 ---
 

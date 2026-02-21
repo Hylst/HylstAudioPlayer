@@ -506,6 +506,66 @@ self.onmessage = async (event: any) => {
             }
             break;
 
+        case 'REORDER_PLAYLIST_TRACKS':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                // payload.order = array of trackIds in new order
+                const { playlistId, order } = payload as { playlistId: number; order: number[] };
+                db.exec('BEGIN TRANSACTION');
+                order.forEach((trackId: number, pos: number) => {
+                    db!.exec({
+                        sql: 'UPDATE playlist_tracks SET position = ? WHERE playlist_id = ? AND track_id = ?',
+                        bind: [pos, playlistId, trackId]
+                    });
+                });
+                db.exec('COMMIT');
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                try { db?.exec('ROLLBACK'); } catch { /* ignore */ }
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'UPDATE_PLAYLIST_COVER':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                db.exec({
+                    sql: 'UPDATE playlists SET cover_art = ?, date_modified = ? WHERE id = ?',
+                    bind: [payload.coverArt, Date.now(), payload.id]
+                });
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
+        case 'RESET_LIBRARY':
+            if (!db) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: 'DB not initialized' } });
+                return;
+            }
+            try {
+                // Disable FTS triggers temporarily by dropping and recreating FTS table,
+                // then delete tracks (no triggers fire on a cleared FTS).
+                // Step 1: Delete FTS content first (avoids trigger-on-delete trying to update a stale FTS)
+                db.exec('DELETE FROM tracks_fts');
+                // Step 2: Delete all user data
+                db.exec('DELETE FROM favorites');
+                db.exec('DELETE FROM playlist_tracks');
+                db.exec('DELETE FROM tracks');
+                // Step 3: FTS is now empty and consistent — no rebuild needed (triggers will insert on next scan)
+                self.postMessage({ type: 'CMD_SUCCESS', id, payload: { result: true } });
+            } catch (err: any) {
+                self.postMessage({ type: 'CMD_ERROR', id, payload: { message: err.message } });
+            }
+            break;
+
         default:
             log('Unknown message type:', type);
     }

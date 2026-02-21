@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS playlists (
   date_modified   DATETIME,
   is_smart        BOOLEAN DEFAULT 0,
   is_favorites    BOOLEAN DEFAULT 0,
-  smart_criteria  TEXT  -- JSON SQL-like criteria
+  smart_criteria  TEXT,  -- JSON SQL-like criteria
+  cover_art       TEXT   -- 'placeholder:N' or NULL
 );
 
 -- Seed the built-in Favorites playlist (id=1)
@@ -131,7 +132,7 @@ END;
  * Current User Version of the database (for migrations).
  * Increment this number when adding new migrations.
  */
-export const CURRENT_DB_VERSION = 4;
+export const CURRENT_DB_VERSION = 5;
 
 /**
  * Type guard to check if a DB row is a Track.

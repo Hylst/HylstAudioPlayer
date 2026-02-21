@@ -28,7 +28,8 @@ class PlayerStore {
 
     // Internal
     private engine: AudioEngine;
-    private timeInterval: any;
+    private rafId: number | null = null;
+    private lastMediaSessionUpdate = 0;
 
     // Public
     visualizer!: Visualizer;
@@ -91,7 +92,7 @@ class PlayerStore {
             const file = await fileHandle.getFile();
             const buffer = await file.arrayBuffer();
             await this.engine.loadTrack(buffer);
-            this.engine.play();
+            await this.engine.play();
             this.isPlaying = true;
             this.duration = this.engine.getDuration();
 
@@ -132,13 +133,13 @@ class PlayerStore {
         }
     }
 
-    togglePlay() {
+    async togglePlay(): Promise<void> {
         if (this.isPlaying) {
             this.engine.pause();
             this.isPlaying = false;
             this.stopTimer();
         } else {
-            this.engine.play();
+            await this.engine.play();
             this.isPlaying = true;
             this.startTimer();
         }
@@ -215,31 +216,44 @@ class PlayerStore {
 
     private startTimer() {
         this.stopTimer();
-        this.timeInterval = setInterval(() => {
+        const tick = () => {
             this.currentTime = this.engine.getCurrentTime();
-            // Update OS media session position
-            if (this.currentTrack) {
-                updateMediaSession(
-                    this.currentTrack,
-                    this.isPlaying,
-                    this.currentTime,
-                    this.duration,
-                    () => this.togglePlay(),
-                    () => this.togglePlay(),
-                    () => this.next(),
-                    () => this.previous(),
-                    (t) => this.seek(t),
-                );
+
+            // Throttle MediaSession updates to ~12fps to avoid overhead
+            const now = performance.now();
+            if (now - this.lastMediaSessionUpdate > 83) {
+                this.lastMediaSessionUpdate = now;
+                if (this.currentTrack) {
+                    updateMediaSession(
+                        this.currentTrack,
+                        this.isPlaying,
+                        this.currentTime,
+                        this.duration,
+                        () => this.togglePlay(),
+                        () => this.togglePlay(),
+                        () => this.next(),
+                        () => this.previous(),
+                        (t) => this.seek(t),
+                    );
+                }
             }
-            // Check end
+
+            // Check end of track
             if (this.currentTime >= this.duration && this.duration > 0) {
                 this.handleTrackEnd();
+                return; // Don't re-request; handleTrackEnd will re-start if needed
             }
-        }, 500); // 500ms is sufficient for MediaSession position updates
+
+            this.rafId = requestAnimationFrame(tick);
+        };
+        this.rafId = requestAnimationFrame(tick);
     }
 
     private stopTimer() {
-        if (this.timeInterval) clearInterval(this.timeInterval);
+        if (this.rafId !== null) {
+            cancelAnimationFrame(this.rafId);
+            this.rafId = null;
+        }
     }
 
     private handleTrackEnd() {
